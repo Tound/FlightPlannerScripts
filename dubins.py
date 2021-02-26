@@ -173,6 +173,7 @@ def dubins_shortest_path(q0,q1,rho):
                 best_cost = cost
                 path.params = params
                 path.path_type = i
+                print(params)
     if best_word == -1:
         return -1
     return path
@@ -310,3 +311,25 @@ def dubins_word(dub_ir,path_type,out):
 # file.truncate(0)
 # dubins_path_sample_many(shortest_path,0.1)
 # file.close()
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    q0 = (0,0,math.pi)
+    q1 = (10,10,-math.pi/2)
+    min_turn = 2
+    dubins_path = dubins_shortest_path(q0,q1,min_turn)
+
+    points = dubins_path_sample_many(dubins_path,0.1)
+    x = np.array([])
+    y = np.array([])
+    z = np.array([])
+    for point in points:
+        x = np.append(x,point[0])
+        y = np.append(y,point[1])
+
+
+    plt.plot(x,y)
+    plt.plot(q0[0],q0[1],'ro',markersize=2)
+    plt.show()

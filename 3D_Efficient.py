@@ -17,7 +17,7 @@ height = 750
 width = 750
 freq = 2
 
-gen = OpenSimplex(seed=random.randint(0,100))
+gen = OpenSimplex()#seed=random.randint(0,100))
 def noise(nx, ny):
     # Rescale from -1.0:+1.0 to 0.0:1.0
     return gen.noise2d(nx, ny) / 2.0 + 0.5
@@ -65,6 +65,20 @@ uav_speed = 50
 # Wind settings
 wind = (10,math.radians(-45)) #Polar coords (Mag, degrees)
 
+if math.degrees(wind[1]) > 360:
+    degs = math.degrees(wind[1]) -360
+else:
+    degs = math.degrees(wind[1])
+
+if degs < 0:
+    wind_bearing = -degs+90
+else:
+    wind_bearing = -degs + 90
+if wind_bearing < 0:wind_bearing = 360+wind_bearing
+elif wind_bearing <= 360: wind_bearing -= 360
+
+
+
 # Camera settings
 side_overlap = 0.5          # Percentage
 forward_overlap = 0.4       # Percentage
@@ -94,7 +108,7 @@ if uav_speed <= wind[0]:
 polygon = [[100,100],[100,650],[650,650],[650,100]]
 polygon.append(polygon[0])
 
-start_loc = [20,20,value[20][20]]
+start_loc = [20,730,value[20][730]]
 
 NFZ = [[200,450],[450,450],[450,200],[200,200]]
 NFZ.append(NFZ[0])
@@ -205,7 +219,7 @@ ax = fig.add_subplot(1,1,1,projection='3d')
 
 (x,y) = np.meshgrid(np.arange(0,width,1),np.arange(0,height,1))
 ax.plot_surface(x, y, value,cmap='terrain')
-ax.set(title=f'Terrain Generated \n Wind Direction: {math.degrees(wind[1])} degrees',xlabel='x', ylabel='y', zlabel='z = Height (m)')
+ax.set(title=f'Terrain Generated \n Wind Direction: {math.degrees(wind[1])} degrees \n Bearing: {wind_bearing}',xlabel='x', ylabel='y', zlabel='z = Height (m)')
 
 # Draw the polygon
 
@@ -276,13 +290,13 @@ for location in all_image_locations:
     routemanager.addImageLocation(image_location)
 
 # Initialize population
-pop = Population(routemanager, 500, True)#routemanager.numberOfLocations(), True)
+pop = Population(routemanager, 100, True)#routemanager.numberOfLocations(), True)
 print( "Initial distance: " + str(pop.getFittest().getEnergy()))
 
 # Evolve population for 50 generations
 ga = GA(routemanager,0.015,20)
 pop = ga.evolvePopulation(pop)
-for i in range(0, 5000):
+for i in range(0, 1000):
     pop = ga.evolvePopulation(pop)
     print(f"{i/10} %")
 
@@ -314,21 +328,26 @@ for location in bestRoute.getRoute():
     index+=1
 
 route = np.array(bestRoute.getRoute())
-route = np.roll(route,-start_index)
-print(route)
-print(start_index, bestRoute.getRoute()[start_index])
+route = np.roll(route,-start_index)         # Shift start location to start of array
+
+# Show the points that are made from the dubins paths
 for dpath in dpaths:
     points = dubins_path_sample_many(dpath,10)
-    for point in points:
-        #plt.plot(point[0],point[1],point[2],'go',markersize=1)
-        plt.plot(point[0],point[1],200,'go',markersize=1,zorder = 5)
+    for point in points[:-1]:
+        plt.plot(point[0],point[1],point[2],'go',markersize=1,zorder=5)
+        #plt.plot(point[0],point[1],200,'go',markersize=1,zorder = 5)
         #dubins_x = np.append(dubins_x, point[0])
         #dubins_y = np.append(dubins_y, point[1])
         #dubins_z = np.append(dubins_z,200)
 
 plt.plot(route_x,route_y,route_z,"-yo",markersize=2,label='TSP Route',zorder=10)
+
+ax.quiver(20,730,250,10*math.cos(wind[1]),10*math.sin(wind[1]),0,length=20,arrow_length_ratio=0.1)
+ax.quiver(route_x[0],route_y[0],route_z[0],route_x[1]-route_x[0],route_y[1]-route_y[0],route_z[1]-route_z[0],arrow_length_ratio=0.1)
 #plt.plot(dubins_x,dubins_y,dubins_z,"-go",markersize=1)
+plt.legend()
 fig.tight_layout()
 plt.show()
 
+print(f"Energy used = {1/bestRoute.getFitness()}")
 print("Estimated time to complete path = ")

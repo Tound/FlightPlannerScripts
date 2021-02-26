@@ -55,10 +55,10 @@ image_x = 4000              # px
 image_y = 3000              # px
 
 # Flight settings`
-coverage_resolution = 0.1 #0.02  # m/px
+coverage_resolution = 0.2 #0.02  # m/px
 
 # Start/end location
-start_pos = (0,0)
+start_pos = (0,3000)
 
 # AOI
 polygon = [[200,1000],[800,2500],[2000,3000],[2500,2500],[3000,1500],[3000,100],[1500,-800],[500,-500]]
@@ -205,14 +205,15 @@ for loc in all_image_locations:
     tourmanager.addCity(location)
 
 # Initialize population
-pop = Population(tourmanager, len(all_image_locations), True)
+pop = Population(tourmanager, len(all_image_locations)+500, True)
 print( "Initial distance: " + str(pop.getFittest().getDistance()))
 
 # Evolve population for 50 generations
 ga = GA(tourmanager)
 pop = ga.evolvePopulation(pop)
-for i in range(0, 10000):
+for i in range(0, 1000):
     pop = ga.evolvePopulation(pop)
+    print(f"{i/10} %")
 
 tour_x = np.array([])
 tour_y = np.array([])
@@ -220,13 +221,13 @@ tour_y = np.array([])
 print( "Finished")
 print( "Final distance: " + str(pop.getFittest().getDistance()))
 print( "Solution:")
-#print( pop.getFittest())
+print( pop.getFittest())
 string = str(pop.getFittest())
 string = string[1:-3]
 string = string.split("),(")
 for word in string:
     word = word.split(',')
-    print(word)
+    #print(word)
     tour_x = np.append(tour_x,float(word[0]))
     tour_y = np.append(tour_y,float(word[1]))
 

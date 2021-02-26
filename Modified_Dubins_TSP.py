@@ -11,10 +11,9 @@ import math
 import random
 import matplotlib.pyplot as pyplot
 import numpy as np
-#from dubins_3D import *
-from dubins import *
+from dubins_3D import *
+#from dubins import *
 import shapely.geometry
-import time
 
 g = 9.81
 
@@ -32,8 +31,6 @@ class ImageLocation:
 
         TAX = 1     # Apply tax to undesired routes
         # Check if heading angle is equal to 
-        #print(self.angle,routemanager.pass_angle)
-        #time.sleep(0.5)
         if not ((self.angle <= routemanager.pass_angle + math.radians(2) and self.angle >= routemanager.pass_angle - math.radians(2)) or 
         (self.angle+math.pi <= routemanager.pass_angle + math.radians(2) and self.angle+math.pi >= routemanager.pass_angle - math.radians(2))):
             #print("TAXED")
@@ -41,8 +38,6 @@ class ImageLocation:
                 TAX = 10
             else:
                 TAX = 100
-        #else:
-            #print("Not taxed")
 
         # SECURITY FUNCTION
         # Ensure not in NFZ
@@ -53,10 +48,10 @@ class ImageLocation:
         
         # Add spiral
         if self.angle != other_img_loc.angle:
-            #q0 = (self.x, self.y,self.altitude,self.angle)
-            #q1 = (other_img_loc.x,other_img_loc.y,other_img_loc.altitude,other_img_loc.angle)
-            q0 = (self.x, self.y,self.angle)
-            q1 = (other_img_loc.x,other_img_loc.y,other_img_loc.angle)
+            q0 = (self.x, self.y,self.altitude,self.angle)
+            q1 = (other_img_loc.x,other_img_loc.y,other_img_loc.altitude,other_img_loc.angle)
+            #q0 = (self.x, self.y,self.angle)
+            #q1 = (other_img_loc.x,other_img_loc.y,other_img_loc.angle)
             #print(q0,q1,routemanager.min_turn)
             d_path = dubins_shortest_path(q0,q1,routemanager.min_turn)
             return TAX*d_path.length(),d_path
@@ -78,8 +73,9 @@ class ImageLocation:
             if (self.altitude - other_img_loc.altitude) < 0:
                 altEnergy = routemanager.uav_mass*g* abs(self.altitude - other_img_loc.altitude)
             else:
-                altEnergy = 0
-            return TAX*math.sqrt(xEnergy*xEnergy + yEnergy*yEnergy + zEnergy*zEnergy) + altEnergy,d_path
+                altEnergy = 0 # If the next point is below the current
+                #return TAX*TAX,d_path
+            return TAX*(math.sqrt(xEnergy*xEnergy + yEnergy*yEnergy + zEnergy*zEnergy) + altEnergy),d_path
 
     def __repr__(self):
         return str(self.x) + "," + str(self.y) + "," + str(self.altitude)
@@ -89,6 +85,9 @@ class ImageLocation:
 
     def getAngle(self):
         return self.angle
+    
+    def setAngle(self,angle):
+        self.angle = angle
 
 class RouteManager:
     all_image_locations = []
@@ -169,6 +168,10 @@ class Route:
         self.dubins_paths = []
         if self.energy == 0:
             routeEnergy = 0
+            # Reset heading angles for new ones to be calculated
+            for location in self.route:
+                location.setAngle(None)
+
             for index in range(0,self.routeSize()):
 
                 prev_location = self.getImageLocation(index-1)
@@ -192,10 +195,15 @@ class Route:
 
                 if current_location.getAngle() is None: current_location.setAngle(current_heading)
 
+                # Calculate the angle of the next heading
                 next_dx = following_location.x - destination_location.x
                 next_dy = following_location.y - destination_location.y
-                next_heading = math.atan(next_dy/next_dx)
+                try:
+                    next_heading = math.atan(next_dy/next_dx)   # Could be 0
+                except RuntimeError:
+                    next_heading = math.inf
 
+                # If the next location doesnt have a heading
                 if destination_location.getAngle() is None: destination_location.setAngle(next_heading)
 
                 #print(current_location.angle,destination_location.angle)
@@ -349,4 +357,4 @@ if __name__ == '__main__':
         route_y = np.append(route_y,location.y)
         route_z = np.append(route_z,location.altitude)
 
-    #plt.show()
+    plt.show()

@@ -9,7 +9,6 @@ Last updated 3/2/21
 """
 
 import math
-import sys
 
 class DubinsPath:
     """
@@ -30,12 +29,17 @@ class DubinsPath:
         self.params = (-1,-1,-1)
         self.rho = -1
         self.path_type = -1
+        self.altitude = 0
 
     def length(self):
         length = 0
-        length += self.params[0]
-        length += self.params[1]
-        length += self.params[2]
+        length = self.params[0] + self.params[1] + self.params[2]
+        length = length*self.rho
+        return length
+
+    def length_3d(self):
+        length_2d = self.params[0] + self.params[1] + self.params[2]
+        length = math.sqrt(length_2d*length_2d + self.altitude*self.altitude)
         length = length*self.rho
         return length
 
@@ -46,7 +50,8 @@ class DubinsIntermediateResults:
     def __init__(self):
         self.alpha = 0
         self.beta = 0
-        self.phi = 0
+        self.phi = 0        # Angle of incline/decline
+        self.altitude = 0   # Altitude
         self.d = 0          # Distance
         self.sa = 0         # Sin alpha
         self.sb = 0         # Sin beta
@@ -70,19 +75,28 @@ path_segments = [[seg_type["L_SEG"],seg_type["S_SEG"],seg_type["L_SEG"]],
                 [seg_type["R_SEG"],seg_type["L_SEG"],seg_type["R_SEG"]],
                 [seg_type["L_SEG"],seg_type["R_SEG"],seg_type["L_SEG"]]]
 
+
+
 def fmodr(x,y):
     return x - y*math.floor(x/y)
 
 def mod2pi(theta):
+    """
+    Returns the radian value of the angle between 0->2pi
+    """
     return fmodr(theta,2*math.pi)
 
 
 points = []
 def print_path(q,x):
+    """
+    Prints the path by adding the points to an array
+    """
     points.append((round(q[0],6),round(q[1],6),round(q[2],6),round(q[3],6)))
+    #print(round(q[0],6),round(q[1],6),round(q[2],6),round(q[3],6))
     return 0
 
-def dubins_segment(t,qi,segment):
+def dubins_segment(t,qi,segment,alt):
     """
     Paramaters
         t:          StepSize
@@ -95,47 +109,54 @@ def dubins_segment(t,qi,segment):
     if segment == seg_type["L_SEG"]:
         qt= (math.sin(qi[3]+t) - st,
             -math.cos(qi[3]+t) + ct,
-            0,
+            alt*t,
             t)
     elif segment == seg_type["R_SEG"]:
         qt = (-math.sin(qi[3]-t) + st,
             math.cos(qi[3]-t) - ct,
-            0,
+            alt*t,
             -t)
     elif segment == seg_type["S_SEG"]:
         qt = (ct*t,
             st*t,
-            1,
+            alt*t,
             0.0)
     # Add translation back to the point
-    qt = (qt[0] + qi[0],
-        qt[1] + qi[1],
-        qt[2] + qi[2],
-        qt[3] + qi[3])
+    qt = (qt[0] + qi[0],        # x
+        qt[1] + qi[1],          # y
+        qt[2] + qi[2],          # z
+        qt[3] + qi[3])          # theta
     return qt
 
-def dubins_path_sample(path,stepSize,q):
-    tprime = stepSize/path.rho
+def dubins_path_sample(path,stepSize,q,alt):
+    """
+    Create a sample of the dubins path
+    """
+    tprime = stepSize/path.rho      # Normalise the time
+
+    #alt = 50/292#path.altitude
+    #print(tprime)
     if stepSize<0 or stepSize> path.length():
         return 2
-    qi = (0.0,0.0,0.0,path.qi[2])
+    qi = (0.0,0.0,0.0,path.qi[3])
     segments = path_segments[path.path_type]
     p1 = path.params[0]
     p2 = path.params[1]
-    q1 = dubins_segment(p1,qi,segments[0])
-    q2 = dubins_segment(p2,q1,segments[1])
+    
+    q1 = dubins_segment(p1,qi,segments[0],alt)
+    q2 = dubins_segment(p2,q1,segments[1],alt)
 
-    if tprime < p1:
-        q = dubins_segment(tprime,qi,segments[0])
-    elif tprime < (p1+p2):
-        q = dubins_segment(tprime-p1,q1,segments[1])
-    else:
-        q = dubins_segment(tprime-p1-p2,q2,segments[2])
+    if tprime < p1:         # If time is within the distance of the first section
+        q = dubins_segment(tprime,qi,segments[0],alt)
+    elif tprime < (p1+p2):  # If time is within the distance of the second section
+        q = dubins_segment(tprime-p1,q1,segments[1],alt)
+    else:                   # Third section is left
+        q = dubins_segment(tprime-p1-p2,q2,segments[2],alt)
 
     q = (q[0]*path.rho+path.qi[0],
         q[1]*path.rho + path.qi[1],
-        q[2]*path.rho + path.qi[2],
-        mod2pi(q[3]))
+        q[2]*path.rho + path.qi[2],     # Might remove the rho
+        mod2pi(q[3]))                   # Cap theta to within 0 and 2pi
 
     return q
 
@@ -145,9 +166,12 @@ def dubins_path_sample_many(path, stepSize):
     points = []
     x = 0
     length = path.length()
-    q = (-1,-1,-1,-1)
+    #altitude_steps = stepSize*length/stepSize
+    alt = path.altitude/length
+    #print(path.altitude,length,altitude_steps,alt)
+    q = (-1,-1,-1,-1)       # x y z angle
     while x < length:
-        q = dubins_path_sample(path,x,q)
+        q = dubins_path_sample(path,x,q,alt)
         retcode = print_path(q,x)
         if retcode != 0:
             return retcode
@@ -171,12 +195,17 @@ def dubins_shortest_path(q0,q1,rho):
     for i in range(0,6):
         params = dubins_word(dub_ir,i,params)
         if params != -1:
-            cost = params[0] + params[1] + params[2]
+            #cost = (math.sqrt(params[0]*params[0] + dub_ir.altitude*dub_ir.altitude) + math.sqrt(params[1]*params[1] + dub_ir.altitude*dub_ir.altitude) + math.sqrt(params[2]*params[2] + dub_ir.altitude*dub_ir.altitude))
+            #cost = math.sqrt(ground_length*ground_length + dub_ir.altitude*dub_ir.altitude)
+            
+            # Altitude would only scale the cost
+            cost = params[0]+params[1]+params[2]
             if cost < best_cost:
                 best_word = i
                 best_cost = cost
                 path.params = params
                 path.path_type = i
+                path.altitude = dub_ir.altitude
     if best_word == -1:
         return -1
     return path
@@ -184,24 +213,28 @@ def dubins_shortest_path(q0,q1,rho):
 
 def dubins_intermediate_results(dub_ir,q0,q1,rho):
     if rho <=0:
-        return -1
-    dx = q1[0] - q0[0]
-    dy = q1[1] - q0[1]
-    dz = q1[2] - q0[2]
-    D = math.sqrt(dx*dx + dy*dy + dz*dz)
+        return -1           # Return an error code
+    dx = q1[0] - q0[0]      # Difference in x coords
+    dy = q1[1] - q0[1]      # Difference in y coords
+    dz = q1[2] - q0[2]      # Difference in z coords
+    D = math.sqrt(dx*dx + dy*dy)    # Total ground distance
     d = D/rho
+
+    altitude = dz#/rho       # Why is it normalised?
+
     theta = 0
-    zeta = 0
+    phi = 0    # Angle of incline
 
     if d>0:
         theta = mod2pi(math.atan2(dy,dx))
         phi = mod2pi(math.atan2(dz,math.sqrt(dx*dx+dy*dy)))
-    alpha = mod2pi(q0[2] - theta)
-    beta = mod2pi(q1[2] - theta)
+    alpha = mod2pi(q0[3] - theta)
+    beta = mod2pi(q1[3] - theta)
 
     dub_ir.alpha = alpha
     dub_ir.beta = beta
     dub_ir.phi = phi
+    dub_ir.altitude = altitude
     dub_ir.d = d
     dub_ir.sa = math.sin(alpha)
     dub_ir.sb = math.sin(beta)
@@ -306,3 +339,29 @@ def dubins_word(dub_ir,path_type,out):
     else:
         result = -1
     return result
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    q0 = (0,0,0,math.pi)
+    q1 = (200,100,-500,-math.pi/2)
+    min_turn = 200
+    dubins_path = dubins_shortest_path(q0,q1,min_turn)
+
+    points = dubins_path_sample_many(dubins_path,0.1)
+
+    x = np.array([])
+    y = np.array([])
+    z = np.array([])
+    for point in points:
+        x = np.append(x,point[0])
+        y = np.append(y,point[1])
+        z = np.append(z,point[2])
+
+    fig = plt.figure(num=1,clear=True,figsize=(12,8))
+    ax = fig.add_subplot(1,1,1,projection='3d')
+    plt.plot(x,y,z)
+    plt.plot(q0[0],q0[1],q0[2],'ro',markersize=2)
+    plt.show()
