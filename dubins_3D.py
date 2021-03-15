@@ -89,6 +89,7 @@ def mod2pi(theta):
 
 points = []
 def print_path(q,x):
+    global points
     """
     Prints the path by adding the points to an array
     """
@@ -167,7 +168,10 @@ def dubins_path_sample_many(path, stepSize):
     x = 0
     length = path.length()
     #altitude_steps = stepSize*length/stepSize
-    alt = path.altitude/length
+    try:
+        alt = path.altitude/length
+    except RuntimeError:
+        alt = 0
     #print(path.altitude,length,altitude_steps,alt)
     q = (-1,-1,-1,-1)       # x y z angle
     while x < length:
