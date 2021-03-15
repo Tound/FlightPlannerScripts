@@ -4,160 +4,9 @@ import numpy as np
 import shapely.geometry as sg
 from dubins_3D import *
 from scipy.interpolate import griddata
+from Image_Classes import *
 
 G = 9.81
-
-class Image_Pass:
-    def __init__(self,image_locs,wind_angle):
-        #self.id = id
-        self.wind_angle = wind_angle
-        #self.start = start
-        #self.end = end
-        self.image_locs = image_locs
-        #image_locs.reverse()
-        #self.image_locs_rev = image_locs
-        self.energy = [None,None]
-        self.length = None
-        self.neighbours = None
-        self.heading = [None,None]
-
-    def getStart(self,config):
-        if config:
-            return self.image_locs[0]
-        else:
-            return self.image_locs[len(self.image_locs)-1]
-
-    def getEnd(self,config):
-        if config:
-            return self.image_locs[len(self.image_locs)-1]
-        else:
-            return self.image_locs[0]
-
-    def getLength(self,config):
-        if self.length is None:
-            length = 0
-            for i,image_loc in enumerate(self.image_locs):
-                dx = image_loc.x - self.image_locs[i-1].x
-                dy = image_loc.y - self.image_locs[i-1].y
-                dz = image_loc.z - self.image_locs[i-1].z
-                length += math.sqrt(dx*dx + dy*dy + dz*dz)
-            self.length = length
-        return self.length
-
-    def getEnergy(self,config,uav_mass):
-        if config:
-            if self.energy[0] is None:
-                energy = 0
-                for i,image_loc in enumerate(self.image_locs):
-                    dx = image_loc.x - self.image_locs[i-1].x
-                    dy = image_loc.y - self.image_locs[i-1].y
-                    dz = image_loc.altitude - self.image_locs[i-1].altitude
-                    if dz>0:
-                        gpe = uav_mass*G*dz
-                        energy += math.sqrt(dx*dx +dy*dy + dz*dz) + gpe
-                    else:
-                        energy += math.sqrt(dx*dx +dy*dy)
-                self.energy[0] = energy
-            return self.energy[0]
-
-        else:
-            if self.energy[1] is None:
-                energy = 0
-                for i,image_loc in reversed(list(enumerate(self.image_locs,))):
-                    dx = image_loc.x - self.image_locs[i-1].x
-                    dy = image_loc.y - self.image_locs[i-1].y
-                    dz = image_loc.altitude - self.image_locs[i-1].altitude
-                    if dz>0:
-                        gpe = uav_mass*G*dz
-                        energy += math.sqrt(dx*dx +dy*dy + dz*dz) + gpe
-                    else:
-                        energy += math.sqrt(dx*dx +dy*dy)
-                self.energy[1] = energy
-            return self.energy[1]
-
-    def __repr__(self):
-        string = ''
-        for image_loc in self.image_locs:
-            string += f"({image_loc.x},{image_loc.y},{image_loc.altitude}),"
-        return string[:-1]
-
-    def getHeading(self,config):
-        if config:
-            if self.heading[0] is None:
-                if len(self.image_locs) <2:
-                    heading = self.wind_angle - math.pi/2
-                    if heading >= 2*math.pi:
-                        heading -= 2*math.pi
-                    elif heading <= -2*math.pi:
-                        heading += 2*math.pi
-
-                    self.heading[0] = heading
-                    return self.heading[0]
-
-                else:
-                    dx = self.image_locs[1].x - self.image_locs[0].x
-                    dy = self.image_locs[1].y - self.image_locs[0].y
-                    heading = math.atan2(dy,dx)
-
-                    self.heading[0] = heading
-            return self.heading[0]
-
-        else:
-            if self.heading[1] is None:
-                if len(self.image_locs) < 2:
-                    self.heading[1] = self.wind_angle + math.pi/2
-                    return self.heading[1]
-                else:
-                #if self.heading[1] is None:
-                    dx = self.image_locs[len(self.image_locs)-2].x - self.image_locs[len(self.image_locs)-1].x
-                    dy = self.image_locs[len(self.image_locs)-2].y - self.image_locs[len(self.image_locs)-1].y
-                    heading = math.atan2(dy,dx)
-
-                    self.heading[1] = heading
-            return self.heading[1]
-
-    def energyTo(self,config,other_pass,other_pass_config,routemanager):
-        d_path = None        
-        # Add spiral?
-        end = self.getEnd(config)
-        start = other_pass.getStart(other_pass_config)
-        q0 = (end.x,end.y,end.altitude,self.getHeading(config))
-        q1 = (start.x,start.y,start.altitude,other_pass.getHeading(other_pass_config))
-
-        d_path = dubins_shortest_path(q0,q1,routemanager.min_turn)
-
-        #print(f"{q0},{q1}")
-        #print(d_path.length())
-        dz = end.altitude - start.altitude
-        if dz > 0:
-            altEnergy = routemanager.uav_mass*G* dz
-        else:
-            altEnergy = 0 # If the next point is below the current
-
-
-
-        if d_path.length() == 0:
-            d_path = None
-            energy = 0
-        else:
-            energy = d_path.length() + altEnergy
-
-        return energy,d_path
-
-class Image_Location:
-    def __init__(self,x,y,altitude):
-        self.x = x
-        self.y = y
-        self.altitude = altitude
-        self.heading = None
-
-    def setHeading(self,heading):
-        if heading >= 2*math.pi:
-            heading -= 2*math.pi
-        self.heading = heading
-
-    def getHeading(self):
-        return self.heading
 
 class Edge:
     def __init__(self,x1,y1,x2,y2):
@@ -276,7 +125,6 @@ def createPasses(area,NFZs,terrain,config):
         # Update pass edge?
         # Check if pass crosses any NFZ edges
         
-
         # FIX TO ALLOW FOR MULTIPLE NFZs
         intersection_points = []
         for edge in NFZ_edges:        # Cycle through all NFZs
@@ -293,7 +141,6 @@ def createPasses(area,NFZs,terrain,config):
                 points_on_pass.append(point)
 
         points_on_pass = sorted(points_on_pass,key=lambda point:point[1])   # List vertically
-        #print(points_on_pass)
         subpasses = len(points_on_pass)/2
 
         # Should center the images so there are no large gaps
@@ -301,9 +148,6 @@ def createPasses(area,NFZs,terrain,config):
             image_locations = []
             start = points_on_pass[j*2]
             end = points_on_pass[j*2 + 1]
-            #print(start)
-            #print(end)
-            #print("\n")
             pass_length = getDistance(start,end)
             number_of_image_locations = (pass_length-coverage_height)/distance_between_photos_height
             if number_of_image_locations == 0:

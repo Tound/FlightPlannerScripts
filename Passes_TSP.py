@@ -13,37 +13,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from dubins_3D import *
 from create_passes import *
-#from dubins import *
+from Image_Classes import *
 import shapely.geometry
 
 import time
 
-g = 9.81
-
 MAX_TAX = 1*10**12
-
-class ImageLocation:
-    def __init__(self,x,y,altitude):
-        self.x = x
-        self.y = y
-        self.altitude = altitude
-        self.angle = None
-
-    def energyTo(self, other_img_loc, routemanager):
-        return TAX*(math.sqrt(xEnergy*xEnergy + yEnergy*yEnergy + zEnergy*zEnergy) + altEnergy),d_path
-
-    def __repr__(self):
-        return str(self.x) + "," + str(self.y) + "," + str(self.altitude)
-
-    def setAngle(self,angle):
-        self.angle = angle
-
-    def getAngle(self):
-        return self.angle
 
 class RouteManager:
     all_image_passes = []
-    #pass_angle = None
     wind_angle = None
     min_turn = None
     uav_mass = None
@@ -60,7 +38,6 @@ class RouteManager:
         return len(self.all_image_passes)
 
     def setParams(self,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc):
-        #self.pass_angle = pass_angle
         self.wind_angle = wind_angle
         self.min_turn = min_turn
         self.uav_mass = uav_mass
@@ -157,7 +134,13 @@ class Route:
             return True
         else:
             return False 
-        #return (image_pass,config) in self.route
+
+    # Added by Thomas Pound
+    def orderPasses(self,index):
+        """
+        This function orders the passes so that the start location is first
+        """
+        self.route = np.roll(self.route,-index)
 
 
 class Population:
@@ -265,6 +248,14 @@ class GA:
         return fittest
 
 def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,population_size=50,mutationRate=0.015,generations=50,tournamentSize=20):
+    """
+    Travelling salesman problem
+    """
+
+    # Create a pass for the start location
+    start_point = Image_Location(start_loc[0],start_loc[1],start_loc[2])
+    start_pass = Image_Pass([start_point],wind_angle)
+    image_passes.append(start_pass)
     routemanager = RouteManager()
     routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc)
     for image_pass in image_passes:
@@ -272,25 +263,27 @@ def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,popula
 
     pop = Population(routemanager,population_size,True)
 
-    # Evolve population for 50 generations
+    # Evolve population for the specified number of generations
     ga = GA(routemanager,mutationRate,tournamentSize)
     pop = ga.evolvePopulation(pop)
     for i in range(0, generations):
-        #for route in pop.routes:
-        #    print(route)
         pop = ga.evolvePopulation(pop)
         print(f"{100 * i/generations} %")
 
-    bestRoute = pop.getFittest()
+    bestRoute = pop.getFittest()    # Get best route
+
+    index = np.where(np.array(bestRoute)[:,0] == start_pass)[0][0]
+    bestRoute.orderPasses(index)
+
     return bestRoute
 
 
 if __name__ == '__main__':
     # TEST
-    image_locs1 = [ImageLocation(10,10,120),ImageLocation(20,20,120),ImageLocation(30,30,120),ImageLocation(40,40,120)]
-    image_locs2 = [ImageLocation(100,100,100),ImageLocation(200,200,100),ImageLocation(300,300,100),ImageLocation(400,400,100)]
-    image_locs3 = [ImageLocation(150,250,90),ImageLocation(170,270,90),ImageLocation(190,290,90),ImageLocation(210,310,90)]
-    image_locs4 = [ImageLocation(205,205,10),ImageLocation(210,205,10),ImageLocation(220,205,10),ImageLocation(230,205,10)]
+    image_locs1 = [Image_Location(10,10,120),Image_Location(20,20,120),Image_Location(30,30,120),Image_Location(40,40,120)]
+    image_locs2 = [Image_Location(100,100,100),Image_Location(200,200,100),Image_Location(300,300,100),Image_Location(400,400,100)]
+    image_locs3 = [Image_Location(150,250,90),Image_Location(170,270,90),Image_Location(190,290,90),Image_Location(210,310,90)]
+    image_locs4 = [Image_Location(205,205,10),Image_Location(210,205,10),Image_Location(220,205,10),Image_Location(230,205,10)]
 
     wind_angle = math.radians(-45)
     image_passes = [Image_Pass(image_locs1,wind_angle),

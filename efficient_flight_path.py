@@ -10,6 +10,7 @@ from opensimplex import OpenSimplex
 from create_passes import *
 from Passes_TSP import *
 from camera_calculations import *
+from Image_Classes import *
 
 import time
 
@@ -52,7 +53,7 @@ def noise(nx, ny):
     # Rescale from -1.0:+1.0 to 0.0:1.0
     return gen.noise2d(nx, ny) / 2.0 + 0.5
 
-terrain = np.zeros((width,height))
+terrain = np.zeros((height,width))
 for y in range(height):
     for x in range(width):
         nx = x/width - 0.5
@@ -64,8 +65,9 @@ for y in range(height):
 # Setup
 ######################
 # UAV settings
-min_turn = 10 #m
+min_turn = 20 #m
 max_incline_grad = 30 #degs
+glide_slope = 20
 uav_mass = 18 # Kg
 uav_speed = 50
 
@@ -82,7 +84,7 @@ image_y = 3000              # px
 fov = 20                    # degs
 
 # Flight settings
-wind = (10,math.radians(125)) #Polar coords (Mag, degrees)
+wind = (10,math.radians(10)) #Polar coords (Mag, degrees)
 coverage_resolution = 0.02  # m/px
 
 uav = UAV(uav_mass,uav_speed,min_turn,max_incline_grad)
@@ -93,8 +95,8 @@ config = Configuration(uav,camera,side_overlap,forward_overlap,coverage_resoluti
 polygon = [[100,100],[100,650],[650,650],[650,100]]
 NFZ = [[300,450],[450,450],[450,200],[300,200]]
 NFZ2 = [[200,450],[300,450],[300,350],[200,350]]
-NFZs = [NFZ,NFZ2]
-start_loc = [20,730,terrain[20][730]]
+NFZs = []#[NFZ,NFZ2]
+start_loc = [400,730,terrain[730][400]]
 
 #altitude = getAltitude(focal_length,coverage_x,sensor_x)
 # Create canvas/ choose area
@@ -107,7 +109,6 @@ start_loc = [20,730,terrain[20][730]]
 # Camera settings
 # Flight settings
 
-# Split cells into passes
 # Multiple angles?
 
 start_time = time.clock()
@@ -131,27 +132,23 @@ plt.plot(polygon[:,0],polygon[:,1],'-bo')
 plt.plot(NFZ[:,0],NFZ[:,1],'-ro')
 
 
-for image_pass in image_passes:
-   # plt.plot(image_pass.start[0],image_pass.start[1],'bo')
-   # plt.plot(image_pass.end[0],image_pass.end[1],'bo')
-    loc_x = np.array([])
-    loc_y = np.array([])
-    loc_z = np.array([])
-    for image_loc in image_pass.image_locs:
-        loc_x = np.append(loc_x,image_loc.x)
-        loc_y = np.append(loc_y,image_loc.y)
-        loc_z = np.append(loc_z,image_loc.altitude)
+# for image_pass in image_passes:
+#     loc_x = np.array([])
+#     loc_y = np.array([])
+#     loc_z = np.array([])
+#     for image_loc in image_pass.image_locs:
+#         loc_x = np.append(loc_x,image_loc.x)
+#         loc_y = np.append(loc_y,image_loc.y)
+#         loc_z = np.append(loc_z,image_loc.altitude)
         
-    plt.plot(loc_x,loc_y,loc_z,'-ro',zorder=10)
-
+#     plt.plot(loc_x,loc_y,loc_z,'-ro',zorder=10)
 
 # Use TSP to find shortest route
-
-shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,max_incline_grad,start_loc,population_size=50,generations=100)
+shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,max_incline_grad,start_loc,population_size=30,generations=2000,mutationRate=0.3)
 
 end_time = time.clock() - start_time
-#print(shortest_path)
-print(end_time)
+print(f"Total time: {round(end_time/60,2)}mins")
+
 dpaths = shortest_path.getDPaths()
 
 stepSize = 0.5
@@ -161,13 +158,11 @@ dubinsY = np.array([])
 dubinsZ = np.array([])
 for dpath in dpaths:
     points = dubins_path_sample_many(dpath,stepSize)
-    #print(points)
     for point in points:
         dubinsX = np.append(dubinsX,point[0])
         dubinsY = np.append(dubinsY,point[1])
         dubinsZ = np.append(dubinsZ,point[2])
 
-#print(dubinsX)
 plt.plot(dubinsX,dubinsY,dubinsZ,'-yo',zorder=15,markersize = 1)
 
 plt.show()
