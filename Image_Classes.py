@@ -21,7 +21,7 @@ class Image_Pass:
         self.length = None
         self.heading = [None,None]
 
-    def getStart(self,config):  # Obtain start locatin of a pass for a particular configuration
+    def getStart(self,config):  # Obtain start location of a pass for a particular configuration
         if config:
             return self.image_locs[0]
         else:
@@ -36,15 +36,18 @@ class Image_Pass:
     def getLength(self,config):
         if self.length is None:
             length = 0
-            for i,image_loc in enumerate(self.image_locs):
-                dx = image_loc.x - self.image_locs[i-1].x
-                dy = image_loc.y - self.image_locs[i-1].y
-                dz = image_loc.z - self.image_locs[i-1].z
-                length += math.sqrt(dx*dx + dy*dy + dz*dz)
+            for i,image_loc in enumerate(self.image_locs,0):
+                if i+1 < len(self.image_locs):
+                    dx = self.image_locs[i+1].x - image_loc.x
+                    dy = self.image_locs[i+1].y - image_loc.y
+                    dz = self.image_locs[i+1].altitude - image_loc.altitude
+                    length += math.sqrt(dx*dx + dy*dy + dz*dz)
+                else:
+                    break
             self.length = length
         return self.length
 
-    def getEnergy(self,config,uav_mass):
+    def getEnergy(self,config,routemanager):
         if config:
             if self.energy[0] is None:
                 energy = 0
@@ -54,8 +57,9 @@ class Image_Pass:
                     dz = image_loc.altitude - self.image_locs[i-1].altitude
 
                     if dz>0:
-                        #if math.atan2(dz,math.sqrt(dx*dx +dy*dy)) > max_incline_grad:
-                        gpe = uav_mass*G*dz
+                        if math.atan2(dz,math.sqrt(dx*dx +dy*dy)) > routemanager.max_grad:
+                            print("PASS IS TOO STEEP!")
+                        gpe = routemanager.uav_mass*G*dz
                         energy += math.sqrt(dx*dx +dy*dy + dz*dz) + gpe
                     else:
                         energy += math.sqrt(dx*dx +dy*dy)
@@ -65,13 +69,14 @@ class Image_Pass:
         else:
             if self.energy[1] is None:
                 energy = 0
-                for i,image_loc in reversed(list(enumerate(self.image_locs,))):
+                for i,image_loc in reversed(list(enumerate(self.image_locs))):
                     dx = image_loc.x - self.image_locs[i-1].x
                     dy = image_loc.y - self.image_locs[i-1].y
                     dz = image_loc.altitude - self.image_locs[i-1].altitude
                     if dz>0:
-                        #if math.atan2(dz,math.sqrt(dx*dx +dy*dy)) > max_incline_grad:
-                        gpe = uav_mass*G*dz
+                        if math.atan2(dz,math.sqrt(dx*dx +dy*dy)) > routemanager.max_grad:
+                            print("PASS IS TOO STEEP!")
+                        gpe = routemanager.uav_mass*G*dz
                         energy += math.sqrt(dx*dx +dy*dy + dz*dz) + gpe
                     else:
                         energy += math.sqrt(dx*dx +dy*dy)
@@ -130,6 +135,9 @@ class Image_Pass:
 
         dz = end.altitude - start.altitude
         if dz > 0:
+            # Check if too steep
+            if math.atan2(dz, d_path.length_3d()) > routemanager.max_grad:
+                print("DUBINS IS TOO STEEP!")
             altEnergy = routemanager.uav_mass*G* dz
         else:
             altEnergy = 0 # If the next point is below the current

@@ -72,7 +72,7 @@ def createPasses(area,NFZs,terrain,config):
     distance_between_photos_width = coverage_width - coverage_width*config.side_overlap
     distance_between_photos_height = coverage_height - coverage_height*config.forward_overlap
 
-    pass_angle = math.pi/2  # In new coord system
+    #pass_angle = math.pi/2  # In new coord system
 
     # Obtain properties about the area
     sorted_vertices = sorted(new_area_coords, key=lambda u:u[0])
@@ -85,7 +85,10 @@ def createPasses(area,NFZs,terrain,config):
     start_u = np.min(np_area[:,0])
 
     # Calculate number of passes to cover area
-    number_of_passes = (length_of_area-coverage_width)/distance_between_photos_width + 1
+    number_of_passes = (length_of_area-coverage_width/2)/distance_between_photos_width
+    # Create shift value to center the passes
+    remainder = length_of_area - coverage_width/2 - int(number_of_passes)*distance_between_photos_width
+    pass_shift = (coverage_width/2 + remainder)/2 - coverage_width/2
 
     polygon_edges = []
     NFZ_edges = []
@@ -100,9 +103,13 @@ def createPasses(area,NFZs,terrain,config):
             NFZ_edges.append(Edge(NFZ_coords[i-1][0],NFZ_coords[i-1][1],
                                     NFZ_coords[i][0],NFZ_coords[i][1]))
 
-    u = start_u
+    # Shift passes to allow for even distribution
+    u = start_u + coverage_width/2 + pass_shift
+    print(f"U: {u}, Start u:{start_u},pass shift:{pass_shift}")
+
+    number_of_passes += 1
+
     for i in range(0,int(number_of_passes)):        # Cycle through all full-length passes across entirety of area
-        u += distance_between_photos_width          # Increase U value on each loop
 
         subpasses = 1
 
@@ -111,7 +118,6 @@ def createPasses(area,NFZs,terrain,config):
         min_intersect = (math.inf,math.inf)
         for edge in polygon_edges:
             intersection = edge.getEdge().intersection(pass_edge)
-            #print(edge.getEdge(),pass_edge,intersection)
             if intersection.is_empty:
                 continue
             if intersection.y >= max_intersect[1]:               # Even though we are using uv axis, shapely requires xy
@@ -149,7 +155,7 @@ def createPasses(area,NFZs,terrain,config):
             start = points_on_pass[j*2]
             end = points_on_pass[j*2 + 1]
             pass_length = getDistance(start,end)
-            number_of_image_locations = (pass_length-coverage_height)/distance_between_photos_height
+            number_of_image_locations = (pass_length-coverage_height/2)/distance_between_photos_height
             if number_of_image_locations == 0:
                 continue
             # Need to calculate overhang of image footprint
@@ -158,9 +164,15 @@ def createPasses(area,NFZs,terrain,config):
                 # Add extra image location to account for incomplete coverage on corners
                 number_of_image_locations += 1
             
-            v = start[1]
+            # Create vertical shift to make image locations have even distribution
+            remainder = pass_length - coverage_height/2 - number_of_image_locations*distance_between_photos_height
+            vertical_shift = (coverage_height/2 + remainder)/2 - coverage_height/2
+
+            number_of_image_locations +=1
+
+            v = start[1] + coverage_height/2 + vertical_shift # Apply shift to center all image locations
             for j in range(0,int(number_of_image_locations)):
-                v += distance_between_photos_height
+
                 coord = convertCoords([[u,v]],wind_angle,'xy')
                 x = coord[0][0]
                 y = coord[0][1]
@@ -169,18 +181,22 @@ def createPasses(area,NFZs,terrain,config):
                 z_points = [terrain[int(y)][int(x)],terrain[int(y)+1][int(x)],
                             terrain[int(y)+1][int(x)+1],terrain[int(y)][int(x)+1]]
 
+                # For created terrain ONLY
                 z = griddata((x_points,y_points),z_points,(x,y))    # Interpolate
 
                 # Could average out the altiutude here>
                 # Could run terraces?
+                
                 altitude = z + uav_altitude
                 image_locations.append(Image_Location(x,y,altitude))
 
-            # Center the image locations?
+                v += distance_between_photos_height
+
             if len(image_locations) > 0:
                 start_xy = convertCoords([start],wind_angle,'xy')
                 end_xy = convertCoords([end],wind_angle,'xy')
                 image_passes.append(Image_Pass(image_locations,config.wind[1]))
+        u += distance_between_photos_width          # Increase U value on each loop
 
     print(f"length = {length_of_area}")
     print(coverage_width,coverage_height)

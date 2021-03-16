@@ -53,6 +53,7 @@ class Route:
         self.route = []
         self.fitness = 0.0
         self.energy = 0
+        self.length = 0
         if route is not None:
             self.route = route
         else:
@@ -107,7 +108,7 @@ class Route:
             for index in range(0,self.routeSize()):
                 current_pass,current_pass_config = self.getImagePass(index)
                 destination_pass = None
-                route_energy += current_pass.getEnergy(current_pass_config,self.routemanager.uav_mass)   # Add energy to traverse path
+                route_energy += current_pass.getEnergy(current_pass_config,self.routemanager)   # Add energy to traverse path
 
                 if index+1 < self.routeSize():
                     destination_pass,destination_pass_config = self.getImagePass(index+1)
@@ -122,6 +123,19 @@ class Route:
             self.energy = route_energy
         return self.energy
     
+    def getLength(self):
+        """
+        Add so that the entire route length can be calculated
+        """
+        length = 0
+        for image_pass in self.route:
+            length += image_pass[0].getLength(image_pass[1])
+        for dubins_path in self.dubins_paths:
+            length += dubins_path.length()
+        self.length = length
+        return self.length
+
+
     def getDPaths(self):
         return self.dubins_paths
 
@@ -140,7 +154,7 @@ class Route:
         """
         This function orders the passes so that the start location is first
         """
-        self.route = np.roll(self.route,-index)
+        self.route = np.roll(self.route,-index,axis=0)
 
 
 class Population:
@@ -233,9 +247,6 @@ class GA:
                 image_pass1,p1_config = route.getImagePass(routePos1)
                 image_pass2,p2_config = route.getImagePass(routePos2)
 
-                if image_pass1 is None or image_pass2 is None:
-                    exit(1)
-
                 route.setImagePass(routePos2,image_pass1,random.choice([True,False]))
                 route.setImagePass(routePos1,image_pass2,random.choice([True,False]))
                 
@@ -247,7 +258,7 @@ class GA:
         fittest = tournament.getFittest()
         return fittest
 
-def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,population_size=50,mutationRate=0.015,generations=50,tournamentSize=20):
+def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,populationSize=50,mutationRate=0.015,generations=50,tournamentSize=20):
     """
     Travelling salesman problem
     """
@@ -257,11 +268,11 @@ def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,popula
     start_pass = Image_Pass([start_point],wind_angle)
     image_passes.append(start_pass)
     routemanager = RouteManager()
-    routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc)
+    routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,math.radians(max_grad),start_loc)
     for image_pass in image_passes:
         routemanager.addImagePass(image_pass)
 
-    pop = Population(routemanager,population_size,True)
+    pop = Population(routemanager,populationSize,True)
 
     # Evolve population for the specified number of generations
     ga = GA(routemanager,mutationRate,tournamentSize)
