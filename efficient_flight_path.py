@@ -69,11 +69,11 @@ min_turn = 20 #m
 max_incline_grad = 31 #degs
 glide_slope = 20
 uav_mass = 18 # Kg
-uav_speed = 50
+uav_speed = 8
 
 # Camera settings
 side_overlap = 0.2          # Percentage
-forward_overlap = 0.1       # Percentage
+forward_overlap = 0.51       # Percentage
 sensor_x = 5.62    *10**-3  # mm
 sensor_y = 7.4     *10**-3  # mm
 focal_length = 3.6 *10**-3  # mm
@@ -84,9 +84,25 @@ image_y = 3000              # px
 fov = 20                    # degs
 
 # Flight settings
-wind = (10,math.radians(0)) #Polar coords (Mag, degrees)
+wind = (5,math.radians(45)) #Polar coords (Mag, degrees)
 coverage_resolution = 0.02  # m/px
 
+max_current_draw = 20
+battery_capacity = 2200
+
+
+# Viablility checks
+if wind[0] > uav_speed:
+    print("Too windy for this flight")
+    exit(1)
+elif wind[0] > uav_speed/2:
+    print("Heading angle will be steep")
+
+# Calculate heading angle
+heading_angle = math.asin(wind[0]/uav_speed)
+print(f"Plane will fly with a heading angle of {round(math.degrees(heading_angle),2)} degrees towards the wind!")
+
+# Create UAV, camera and configuration object and store all variables
 uav = UAV(uav_mass,uav_speed,min_turn,max_incline_grad)
 camera = Camera(sensor_x,sensor_y,focal_length,cam_resolution,aspect_ratio,image_x,image_y)
 config = Configuration(uav,camera,side_overlap,forward_overlap,coverage_resolution,wind)
@@ -148,8 +164,17 @@ for image_pass in image_passes:
 # Use TSP to find shortest route
 shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,max_incline_grad,start_loc,populationSize=50,generations=2000,mutationRate=0.3)
 end_time = time.clock() - start_time
-print(f"Total time: {round(end_time/60,2)}mins")
-print(f"Total length: {round(shortest_path.getLength(),2)}m")
+print(f"Total time to solve: {round(end_time/60,2)}mins")
+print(f"Total length of route: {round(shortest_path.getLength(),2)}m")
+
+time_of_flight = shortest_path.getLength()/uav_speed
+print(f"Estimated time of flight: {round(time_of_flight/60,2)}mins")
+current_used = max_current_draw*time_of_flight/3600
+print(f"Estimated Current draw (Worst case): {round(current_used,2)}A")
+if current_used > battery_capacity*10**-3:
+    print("Current battery capacity will not suffice")
+else:
+    print("Current battery capacity will suffice")
 
 dpaths = shortest_path.getDPaths()
 

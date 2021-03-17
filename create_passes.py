@@ -72,8 +72,6 @@ def createPasses(area,NFZs,terrain,config):
     distance_between_photos_width = coverage_width - coverage_width*config.side_overlap
     distance_between_photos_height = coverage_height - coverage_height*config.forward_overlap
 
-    #pass_angle = math.pi/2  # In new coord system
-
     # Obtain properties about the area
     sorted_vertices = sorted(new_area_coords, key=lambda u:u[0])
     length_of_area = sorted_vertices[len(sorted_vertices)-1][0] - sorted_vertices[0][0]
@@ -85,10 +83,20 @@ def createPasses(area,NFZs,terrain,config):
     start_u = np.min(np_area[:,0])
 
     # Calculate number of passes to cover area
-    number_of_passes = (length_of_area-coverage_width/2)/distance_between_photos_width
+    #number_of_passes = (length_of_area-coverage_width/2)/distance_between_photos_width
+    
+    number_of_passes = (length_of_area-config.side_overlap*coverage_width)/distance_between_photos_width
+    # Overlap must be above 0 or the pass shift will not work
+    if (number_of_passes % 1 > 0 or config.wind[0] > 0) and config.side_overlap > 0: # If the number of passes is not an integer or wind is present
+        number_of_passes += 1
+    if config.side_overlap == 0:
+        print("SIDE OVERLAP IS 0 AND WILL CAUSE AN ISSUE!")
+
     # Create shift value to center the passes
-    remainder = length_of_area - coverage_width/2 - int(number_of_passes)*distance_between_photos_width
-    pass_shift = (coverage_width/2 + remainder)/2 - coverage_width/2
+    #remainder = length_of_area - coverage_width/2 - int(number_of_passes)*distance_between_photos_width
+    remainder = length_of_area - (int(number_of_passes) * coverage_width - int(number_of_passes-1)*config.side_overlap*coverage_width) 
+    #pass_shift = (coverage_width/2 + remainder)/2 - coverage_width/2
+    pass_shift = remainder/2
 
     polygon_edges = []
     NFZ_edges = []
@@ -103,11 +111,14 @@ def createPasses(area,NFZs,terrain,config):
             NFZ_edges.append(Edge(NFZ_coords[i-1][0],NFZ_coords[i-1][1],
                                     NFZ_coords[i][0],NFZ_coords[i][1]))
 
+
     # Shift passes to allow for even distribution
     u = start_u + coverage_width/2 + pass_shift
     print(f"U: {u}, Start u:{start_u},pass shift:{pass_shift}")
 
-    number_of_passes += 1
+    #number_of_passes += 1
+
+    print(distance_between_photos_width,coverage_width,number_of_passes,length_of_area)
 
     for i in range(0,int(number_of_passes)):        # Cycle through all full-length passes across entirety of area
 
@@ -155,9 +166,19 @@ def createPasses(area,NFZs,terrain,config):
             start = points_on_pass[j*2]
             end = points_on_pass[j*2 + 1]
             pass_length = getDistance(start,end)
-            number_of_image_locations = (pass_length-coverage_height/2)/distance_between_photos_height
+
+            #number_of_image_locations = (pass_length-coverage_height/2)/distance_between_photos_height
+
+            number_of_image_locations = (pass_length-config.forward_overlap*coverage_height)/distance_between_photos_height
+
             if number_of_image_locations == 0:
                 continue
+
+            # Overlap must be above 0 or the pass shift will not work
+            if number_of_image_locations % 1 > 0 and config.forward_overlap > 0: # If the number of image locations is not an integer or wind is present
+                number_of_image_locations += 1
+            if config.forward_overlap == 0:
+                print("FORWARD OVERLAP IS 0 AND WILL CAUSE AN ISSUE!")
             # Need to calculate overhang of image footprint
 
             if config.forward_overlap < 0.5:
@@ -165,10 +186,12 @@ def createPasses(area,NFZs,terrain,config):
                 number_of_image_locations += 1
             
             # Create vertical shift to make image locations have even distribution
-            remainder = pass_length - coverage_height/2 - number_of_image_locations*distance_between_photos_height
-            vertical_shift = (coverage_height/2 + remainder)/2 - coverage_height/2
+            remainder = pass_length - (int(number_of_image_locations) * coverage_height - int(number_of_image_locations-1)*config.forward_overlap*coverage_height) 
+            vertical_shift = remainder/2
+            #remainder = pass_length - coverage_height/2 - number_of_image_locations*distance_between_photos_height
+            #vertical_shift = (coverage_height/2 + remainder)/2 - coverage_height/2
 
-            number_of_image_locations +=1
+            #number_of_image_locations +=1
 
             v = start[1] + coverage_height/2 + vertical_shift # Apply shift to center all image locations
             for j in range(0,int(number_of_image_locations)):
