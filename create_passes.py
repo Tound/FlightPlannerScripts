@@ -56,6 +56,11 @@ def createPasses(area,NFZs,terrain,config):
 
     image_passes = []
 
+    # IF WINDLESS
+    if config.wind[0] == 0:
+        wind_angle = 0 #largest_edge
+
+
     # Update coordinate system
     new_area_coords = convertCoords(area,wind_angle,'uv')
     new_NFZs = []
@@ -122,6 +127,8 @@ def createPasses(area,NFZs,terrain,config):
 
     for i in range(0,int(number_of_passes)):        # Cycle through all full-length passes across entirety of area
 
+        intersection_points = []
+
         subpasses = 1
 
         pass_edge = sg.LineString([(u,min_height-1),(u,max_height+1)])
@@ -135,6 +142,7 @@ def createPasses(area,NFZs,terrain,config):
                 max_intersect = [intersection.x,intersection.y]
             if intersection.y <= min_intersect[1]:
                 min_intersect = [intersection.x,intersection.y]
+            intersection_points.append([intersection.x,intersection.y])
         pass_start = min_intersect
         pass_end = max_intersect
         total_pass_length = getDistance(min_intersect,max_intersect)
@@ -143,7 +151,7 @@ def createPasses(area,NFZs,terrain,config):
         # Check if pass crosses any NFZ edges
         
         # FIX TO ALLOW FOR MULTIPLE NFZs
-        intersection_points = []
+
         for edge in NFZ_edges:        # Cycle through all NFZs
             intersection = edge.getEdge().intersection(pass_edge)
             if intersection.is_empty:
@@ -151,13 +159,14 @@ def createPasses(area,NFZs,terrain,config):
             else:
                 intersection_points.append([intersection.x,intersection.y])
 
-        points_on_pass = [min_intersect,max_intersect]
+        #points_on_pass = []#[min_intersect,max_intersect]
 
-        if not len(intersection_points)==0:
-            for point in intersection_points:
-                points_on_pass.append(point)
+        #if not len(intersection_points)==0:
+        #    for point in intersection_points:
+        #        points_on_pass.append(point)
 
-        points_on_pass = sorted(points_on_pass,key=lambda point:point[1])   # List vertically
+        #points_on_pass = sorted(points_on_pass,key=lambda point:point[1])   # List vertically
+        points_on_pass = sorted(intersection_points,key=lambda point:point[1])   # List vertically
         subpasses = len(points_on_pass)/2
 
         # Should center the images so there are no large gaps

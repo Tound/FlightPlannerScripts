@@ -84,7 +84,7 @@ image_y = 3000              # px
 fov = 20                    # degs
 
 # Flight settings
-wind = (5,math.radians(45)) #Polar coords (Mag, degrees)
+wind = (5,math.radians(90)) #Polar coords (Mag, degrees)
 coverage_resolution = 0.02  # m/px
 
 max_current_draw = 20
@@ -108,7 +108,7 @@ camera = Camera(sensor_x,sensor_y,focal_length,cam_resolution,aspect_ratio,image
 config = Configuration(uav,camera,side_overlap,forward_overlap,coverage_resolution,wind)
 
 # Test cases
-polygon = [[100,100],[100,650],[650,650],[650,100]]
+polygon = [[100,100],[100,650],[650,650],[750,350],[650,100]]
 NFZ = [[300,450],[450,450],[450,200],[300,200]]
 NFZ2 = [[200,450],[300,450],[300,350],[200,350]]
 NFZs = []#[NFZ,NFZ2]
@@ -141,7 +141,7 @@ ax.set(title='Terrain Generated',xlabel='x', ylabel='y', zlabel='z = Height (m)'
 ax.set_aspect(aspect='auto')
 fig.tight_layout()
 
-polygon = np.array([[100,100],[100,650],[650,650],[650,100]])
+polygon = np.array([[100,100],[100,650],[650,650],[750,350],[650,100]])
 NFZ = np.array([[300,450],[450,450],[450,200],[300,200]])
 plt.plot(polygon[:,0],polygon[:,1],100,'-bo',zorder=15)
 plt.plot(NFZ[:,0],NFZ[:,1],'-ro')
@@ -162,7 +162,7 @@ for image_pass in image_passes:
 # Update passes with altitudes from API
 
 # Use TSP to find shortest route
-shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,max_incline_grad,start_loc,populationSize=50,generations=2000,mutationRate=0.3)
+shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,max_incline_grad,start_loc,populationSize=50,generations=20,mutationRate=0.3)
 end_time = time.clock() - start_time
 print(f"Total time to solve: {round(end_time/60,2)}mins")
 print(f"Total length of route: {round(shortest_path.getLength(),2)}m")
