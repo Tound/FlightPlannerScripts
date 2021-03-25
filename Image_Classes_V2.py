@@ -16,7 +16,6 @@ class Image_Pass:
     """
     def __init__(self,start,end,altitude,wind_angle):
         self.wind_angle = wind_angle
-        #self.image_locs = image_locs
         self.energy = [None,None]
         self.length = None
         self.heading = [None,None]
@@ -30,13 +29,16 @@ class Image_Pass:
         else:
             return self.end
 
-    def getEnd(self,config):
+    def getEnd(self,config):    # Get end location of the pass for a known configuration
         if config:
             return self.end
         else:
             return self.start
 
-    def getLength(self,config):
+    def getLength(self):
+        """
+        Get length of pass for a known configuration
+        """
         if self.length is None:
             length = 0
 
@@ -48,6 +50,9 @@ class Image_Pass:
         return self.length
 
     def getEnergy(self,config,routemanager):
+        """
+        Get the energy needed to traverse the pass
+        """
         if config:
             if self.energy[0] is None:
                 energy = 0
@@ -87,6 +92,16 @@ class Image_Pass:
         return string[:-1]
 
     def getHeading(self,config):
+        """
+        Retrieve or calculate the heading angle for any config
+        Uses the direction of the pass to calculate the heading angle
+        Parameters:
+            config  - Boolean value to choose which direction the pass should be traversed
+                      True = Normal direction
+                      False = Reverse Direction
+        Returns:
+            The heading for the specified configuration
+        """
         if config:
             if self.heading[0] is None:
                 if self.start == self.end :
@@ -121,6 +136,18 @@ class Image_Pass:
             return self.heading[1]
 
     def energyTo(self,config,other_pass,other_pass_config,routemanager):
+        """
+        Calculate the energy require to traverse between two passes
+        Parameters:
+            config              - Configuration of pass for direction of traversal
+            other_pass          - The next pass that on the route
+            other_pass_config   - The configuration of the next pass in the route, decides the direction of traversal
+            routemanger         - Routemanager that holds all the flight settings
+
+        Returns:
+            energy              - The respective energy to travel to the next pass
+            dpath               - The dubins path required to link the two passes
+        """
         d_path = None        
         # Add spiral?
         end = self.getEnd(config)
