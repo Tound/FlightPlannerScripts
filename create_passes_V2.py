@@ -11,6 +11,15 @@ import time
 G = 9.81
 
 class Edge:
+    """
+    Edge class used to test whether or not edges intercept
+    parameters:
+        x1  - x coordinate of start point
+        y1  - y coordinate of start point
+        x2  - x coordinate of end point
+        y2  - y coordinate of end point
+    A linestring is produced from the shapely.geometry package to represent an edge
+    """
     def __init__(self,x1,y1,x2,y2):
         self.x1 = x1
         self.y1 = y1
@@ -22,6 +31,9 @@ class Edge:
         return self.edge
 
 def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start,wind_angle):
+    """
+    Obtain altitude data for entire pass across generated terrain
+    """
     altitude_profile = []
     v = start[1]
     for k in range(0,round(pass_length)):
@@ -42,6 +54,14 @@ def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start,wind_angle):
     return altitude_profile
 
 def getDistance(point1,point2):
+    """
+    Get the distance between two points in 2D
+    parameters:
+        point1 - First 2D coordinate
+        point2 - Second 2D coordinate
+    returns:
+        Distance between points using pythagorus
+    """
     dx = point2[0]-point1[0]
     dy = point2[1]-point1[1]
     return math.sqrt(dy*dy + dx*dx)
@@ -73,10 +93,20 @@ def convertCoords(vertices,angle,coord_system):
     return new_coords
 
 def createPasses(area,NFZs,terrain,config):
+    """
+    Create passes across specified area for known terrain
+    Parameters
+        area    - Vertices to chosen area of interest
+        NFZs    - 2D array of vertices for any NFZs
+        terrain - Generated terrain with altitude data
+        config  - Configuration containing settings for the flight
+    Returns
+        image_passes - List of created passes
+    """
     camera = config.camera
     wind_angle = config.wind[1]
 
-    image_passes = []
+    image_passes = []   # Initialise list of image_passes as empty
 
     # IF WINDLESS
     if config.wind[0] == 0:
@@ -285,7 +315,6 @@ def createPasses(area,NFZs,terrain,config):
                         index += 1
             else:
                 pass
-
 
             # Must make sure TSP does not go through land or through NFZ
         u += distance_between_photos_width          # Increase U value on each loop

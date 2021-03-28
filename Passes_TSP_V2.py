@@ -2,7 +2,6 @@
 
 #!/usr/bin/env python
 """
-PROTOTYPE
 Modified TSP for photogrammety shortest route finding
 Based on TurboFart GitHub
 """
@@ -18,9 +17,12 @@ import shapely.geometry
 
 import time
 
-MAX_TAX = 1*10**12
+MAX_TAX = 1*10**12  # Maximum tax added to routes that have sections that are considered illegal or unwanted
 
 class RouteManager:
+    """
+    The routemanager class keeps track of all image passes and the other flight settings
+    """
     all_image_passes = []
     wind_angle = None
     min_turn = None
@@ -38,6 +40,10 @@ class RouteManager:
         return len(self.all_image_passes)
 
     def setParams(self,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc):
+        """
+        Added by Thomas Pound so that flight parameters can be stored 
+        and passed into functions
+        """
         self.wind_angle = wind_angle
         self.min_turn = min_turn
         self.uav_mass = uav_mass
@@ -47,7 +53,10 @@ class RouteManager:
 
 
 class Route:
-    dubins_paths = []
+    """
+    Route class represents an entire route that links all image passes
+    """
+    dubins_paths = []   # Stores all dubins path objects
     def __init__(self,routemanager,route=None):
         self.routemanager = routemanager
         self.route = []
@@ -99,28 +108,30 @@ class Route:
         return self.fitness
     
     def getEnergy(self):
-        # COST FUNCTION
+        """
+        Function returns the "energy" of the route
+        The energy is calculated using a cost function which takes into consideration the 
+        elevation change and length of each pass
+        """
         self.dubins_paths = []
-        if self.energy == 0:
-            route_energy = 0
-            # Energy from start to first
-            route_energy += 10
-            for index in range(0,self.routeSize()):
-                current_pass,current_pass_config = self.getImagePass(index)
+        if self.energy == 0:    # If the energy of the route has not yet been calculated
+            route_energy = 0    # Initialise energy as 0
+            for index in range(0,self.routeSize()): # Cycle through every pass on route
+                current_pass,current_pass_config = self.getImagePass(index) # Store the current pass and its configuration (forwards or backwards)
                 destination_pass = None
-                route_energy += current_pass.getEnergy(current_pass_config,self.routemanager)   # Add energy to traverse path
+                route_energy += current_pass.getEnergy(current_pass_config,self.routemanager)   # Add energy required to traverse path
 
-                if index+1 < self.routeSize():
-                    destination_pass,destination_pass_config = self.getImagePass(index+1)
+                if index+1 < self.routeSize():                                              # If not at the end of the route
+                    destination_pass,destination_pass_config = self.getImagePass(index+1)   # Store next pass as destination pass
                 else:
-                    destination_pass,destination_pass_config = self.getImagePass(0)
+                    destination_pass,destination_pass_config = self.getImagePass(0)         # Make destination pass the first pass in list to create link
 
+                # Obtain energy and the dubins path required to connect the passes
                 energy,dpath = current_pass.energyTo(current_pass_config,destination_pass,destination_pass_config,self.routemanager)
                 if dpath is not None:
-                    self.dubins_paths.append(dpath)
-                route_energy += energy
-            route_energy += 10           # Energy from end point to start pos
-            self.energy = route_energy
+                    self.dubins_paths.append(dpath) # Add the shortest dubins path between the passes
+                route_energy += energy              # Add calculated energy to link passes
+            self.energy = route_energy              # Store calculated energy for this route
         return self.energy
     
     def getLength(self):
@@ -129,7 +140,7 @@ class Route:
         """
         length = 0
         for image_pass in self.route:
-            length += image_pass[0].getLength(image_pass[1])
+            length += image_pass[0].getLength()
         for dubins_path in self.dubins_paths:
             length += dubins_path.length()
         self.length = length
@@ -137,6 +148,10 @@ class Route:
 
 
     def getDPaths(self):
+        """
+        Added by Thomas Pound
+        Get the calculated shortest dubins paths to link the passes
+        """
         return self.dubins_paths
 
     def routeSize(self):
@@ -149,15 +164,19 @@ class Route:
         else:
             return False 
 
-    # Added by Thomas Pound
+
     def orderPasses(self,index):
         """
+        Added by Thomas Pound
         This function orders the passes so that the start location is first
         """
         self.route = np.roll(self.route,-index,axis=0)
 
 
 class Population:
+    """
+    Population class saves all routes in the population
+    """
     def __init__(self,routemanager,populationSize,initialise):
         self.routes = []
         for i in range(0,populationSize):
@@ -187,6 +206,9 @@ class Population:
 
 
 class GA:
+    """
+    Genetic algorithm class
+    """
     def __init__(self,routemanager,mutationRate, tournamentSize):
         self.routemanager = routemanager
         self.mutationRate = mutationRate
@@ -200,7 +222,6 @@ class GA:
             newPopulation.saveRoute(0,population.getFittest())
             elitismOffset = 1
 
-
         for i in range(elitismOffset, newPopulation.populationSize()):
             parent1 = self.tournamentSelection(population)
             parent2 = self.tournamentSelection(population)
@@ -212,13 +233,11 @@ class GA:
 
         return newPopulation
 
-
     def crossover(self,parent1,parent2):
         child = Route(self.routemanager)
 
         startPos = int(random.random() * parent1.routeSize())
         endPos = int(random.random() * parent1.routeSize())
-
 
         for i in range(0,child.routeSize()):
             p1_pass,p1_config = parent1.getImagePass(i)
@@ -261,35 +280,54 @@ class GA:
 def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,populationSize=50,mutationRate=0.015,generations=50,tournamentSize=20):
     """
     Travelling salesman problem
+    parameters:
+        image_passes    - All image passes on the route
+        wind_angle      - Angle of the wind
+        min_turn        - Min turn radius in metres for the aircraft
+        uav_mass        - Mass of the aircraft in Kg
+        NFZs            - Vertices of the NFZs
+        max_grad        - Maximum incline gradient of the aircraft
+        start_loc       - Coordinates of the takeoff and landing location
+        population_size - How large the population of routes should be, default is 50
+        mutation_rate   - How often/likely are the routes to mutate, default is 0.015
+        generations     - How many evolutions should happen, default is 50
+        tournament_size - How large should the tournament size be, default is 20
+
+    returns:
+        best_route      - The shortest path found from the GA TSP
     """
 
     # Create a pass for the start location
     start_pass = Image_Pass(start_loc,start_loc,start_loc[2],wind_angle)
     image_passes.append(start_pass)
-    routemanager = RouteManager()
-    routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,math.radians(max_grad),start_loc)
+
+    routemanager = RouteManager()   # Create a new route manager
+    routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,math.radians(max_grad),start_loc)  # Set all parameters and settings
+    # Add all passes to the routemanagers list
     for image_pass in image_passes:
         routemanager.addImagePass(image_pass)
 
-    pop = Population(routemanager,populationSize,True)
+    pop = Population(routemanager,populationSize,True)  # Create a population
 
     # Evolve population for the specified number of generations
     ga = GA(routemanager,mutationRate,tournamentSize)
     pop = ga.evolvePopulation(pop)
     for i in range(0, generations):
         pop = ga.evolvePopulation(pop)
-        print(f"{100 * i/generations} %")
+        print(f"{100 * i/generations} %")   # Print the percentage of completion
 
     bestRoute = pop.getFittest()    # Get best route
 
-    index = np.where(np.array(bestRoute)[:,0] == start_pass)[0][0]
-    bestRoute.orderPasses(index)
+    index = np.where(np.array(bestRoute)[:,0] == start_pass)[0][0]  # Find the start location in the route
+    bestRoute.orderPasses(index)    # Order the passes so that the start location is first in the list
 
     return bestRoute
 
 
 if __name__ == '__main__':
-    # TEST
+    """
+    Test case with 4 define pass locations
+    """
     image_locs1 = [Image_Location(10,10,120),Image_Location(20,20,120),Image_Location(30,30,120),Image_Location(40,40,120)]
     image_locs2 = [Image_Location(100,100,100),Image_Location(200,200,100),Image_Location(300,300,100),Image_Location(400,400,100)]
     image_locs3 = [Image_Location(150,250,90),Image_Location(170,270,90),Image_Location(190,290,90),Image_Location(210,310,90)]
