@@ -64,10 +64,10 @@ if len(sys.argv) == 2 and sys.argv[1] == 'test':
     ########################
     height = 750        # 750m
     width = 750         # 750m
-    freq = 5            # Hz
+    freq = 2            # Hz
     multiplier = 10
 
-    gen = OpenSimplex()#seed=random.randint(0,100))
+    gen = OpenSimplex(seed=random.randint(0,100))
     def noise(nx, ny):
         # Rescale from -1.0:+1.0 to 0.0:1.0
         return gen.noise2d(nx, ny) / 2.0 + 0.5
@@ -77,14 +77,17 @@ if len(sys.argv) == 2 and sys.argv[1] == 'test':
         for x in range(width):
             nx = x/width - 0.5
             ny = y/height - 0.5
-            elevation = multiplier*noise(freq*nx, freq*ny)
+            elevation = (multiplier*noise(freq*nx, freq*ny)
+                + 2*multiplier*noise(10 * nx, 10 * ny)
+                + 0*multiplier*noise(20 * nx, 20 * ny)
+                + 0*5*multiplier*noise(5 * nx, 5 * ny))
             terrain[y][x] =  multiplier*math.pow(elevation,0.5)
 
     ######################
     # Setup
     ######################
     # UAV settings
-    min_turn = 20 #m
+    min_turn = 10 #m
     max_incline_grad = 31 #degs
     glide_slope = 20
     uav_mass = 18 # Kg
@@ -103,7 +106,7 @@ if len(sys.argv) == 2 and sys.argv[1] == 'test':
     fov = 20                    # degs
 
     # Flight settings
-    wind = (5,math.radians(90)) #Polar coords (Mag, degrees)
+    wind = (5,math.radians(45)) #Polar coords (Mag, degrees)
     coverage_resolution = 0.02  # m/px
 
     max_current_draw = 20
@@ -117,6 +120,7 @@ if len(sys.argv) == 2 and sys.argv[1] == 'test':
     start_loc = [400,730,terrain[730][400]]
 
 else:
+    # Convert bearing to angle by doing 90-bearing
     print("Reading text file")
 
 
@@ -136,7 +140,17 @@ uav = UAV(uav_mass,uav_speed,min_turn,max_incline_grad)
 camera = Camera(sensor_x,sensor_y,focal_length,cam_resolution,aspect_ratio,image_x,image_y)
 config = Configuration(uav,camera,side_overlap,forward_overlap,coverage_resolution,wind)
 
+polygon_edges = []
+for i in range(0,len(polygon)):
+    polygon_edges.append(Edge(polygon[i-1][0],polygon[i-1][1],
+                    polygon[i][0],polygon[i][1]))
 
+NFZ_edges = []
+for NFZ in NFZs:
+    for i in range(0,len(NFZ)):
+        NFZ_edges.append(Edge(NFZ[i-1][0],NFZ[i-1][1],
+                        NFZ[i][0],NFZ[i][1]))
+            
 # Create canvas/ choose area
 # Get startpoint, 2D points from canvas and elevation data via intermediate text file + flight settings
 # Read file and create points
@@ -151,14 +165,15 @@ config = Configuration(uav,camera,side_overlap,forward_overlap,coverage_resoluti
 
 start_time = time.clock()   # Get current time for measuring solve time
 
-image_passes = createPasses(polygon,NFZs,terrain,config) # Create pass objects for current configuration
+# Create passes from the ROI
+image_passes = createPasses(polygon,polygon_edges,NFZs,terrain,config) # Create pass objects for current configuration
 
 # DRAW FOR TESTING
 fig = plt.figure(num=1,clear=True,figsize=(12,8))
 ax = fig.add_subplot(1,1,1,projection='3d')
 (x,y) = np.meshgrid(np.arange(0,width,1),np.arange(0,height,1))
 ax.plot_surface(x, y, terrain,cmap='terrain',zorder=5)
-ax.set(title='Terrain Generated',xlabel='x', ylabel='y', zlabel='z = Height (m)')
+ax.set(title=f'Terrain Generated\nWind angle: {round(math.degrees(wind[1]),2)} degs',xlabel='x', ylabel='y', zlabel='z = Height (m)')
 #ax.set_zlim(0,150)
 
 ax.set_aspect(aspect='auto')
@@ -186,13 +201,15 @@ for image_pass in image_passes:
 # Update passes with altitudes from API
 
 # Use TSP to find shortest route
-shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,max_incline_grad,start_loc,populationSize=50,generations=200,mutationRate=0.3)
+shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,NFZ_edges,max_incline_grad,glide_slope,
+                    start_loc,populationSize=50,generations=200,mutationRate=0.5)
 
 end_time = time.clock() - start_time    # Calculate time taken to create passes and findest shortest route
 
 # Print flight stats
 print(f"Total time to solve: {round(end_time/60,2)}mins")
 print(f"Total length of route: {round(shortest_path.getLength(),2)}m")
+print(f"Total energy of route: {round(shortest_path.getEnergy(),2)}")
 
 time_of_flight = shortest_path.getLength()/uav_speed
 print(f"Estimated time of flight: {round(time_of_flight/60,2)}mins")

@@ -4,8 +4,11 @@
 
 import math
 from dubins_3D import *
+import shapely.geometry as sg
 
 G = 9.81    # Acceleration caused by gravity in m/s^2
+MAX_TAX = 1*10**12  # Maximum tax added to routes that have sections that are considered illegal or unwanted
+
 
 class Image_Pass:
     """
@@ -60,11 +63,15 @@ class Image_Pass:
                 dy = self.end[1] - self.start[1]
                 dz = self.end[2] - self.start[2]
 
-                if dz>0:
+                if dz > 0:
                     if math.atan2(dz,math.sqrt(dx*dx +dy*dy)) > routemanager.max_grad:
-                        print("PASS IS TOO STEEP!")
+                        print("Sections of this pass are too steep, the UAV will fail!")
+                        energy += MAX_TAX
                     gpe = routemanager.uav_mass*G*dz
                     energy += math.sqrt(dx*dx +dy*dy + dz*dz) + gpe
+                elif dz < 0:
+                    if abs(math.atan2(dz,math.sqrt(dx*dx +dy*dy))) > routemanager.glide_slope:
+                        print("Too steep for glide slope - Images will have motion blur")
                 else:
                     energy += math.sqrt(dx*dx +dy*dy)
                 self.energy[0] = energy
@@ -78,9 +85,13 @@ class Image_Pass:
                 dz = self.start[2] - self.end[2]
                 if dz>0:
                     if math.atan2(dz,math.sqrt(dx*dx +dy*dy)) > routemanager.max_grad:
-                        print("PASS IS TOO STEEP!")
+                        print("Sections of this pass are too steep, the UAV will fail!")
+                        energy += MAX_TAX
                     gpe = routemanager.uav_mass*G*dz
                     energy += math.sqrt(dx*dx +dy*dy + dz*dz) + gpe
+                elif dz < 0:
+                    if abs(math.atan2(dz,math.sqrt(dx*dx +dy*dy))) > routemanager.glide_slope:
+                        print("Too steep for glide slope - Images will have motion blur")
                 else:
                     energy += math.sqrt(dx*dx +dy*dy)
                 self.energy[1] = energy
@@ -157,6 +168,15 @@ class Image_Pass:
 
         d_path = dubins_shortest_path(q0,q1,routemanager.min_turn)
 
+        # Check if goes through NFZ
+        # Create line
+        edge = sg.LineString([(start[0],start[1]),(end[0],end[1])])
+        for NFZ_edge in routemanager.NFZ_edges:
+            intersection = NFZ_edge.getEdge().intersection(edge)
+            if not intersection.is_empty:
+                energy = MAX_TAX
+                return energy,d_path
+
         dz = end[2] - start[2]
         if dz > 0:
             # Check if too steep
@@ -171,5 +191,4 @@ class Image_Pass:
             energy = 0
         else:
             energy = d_path.length() + altEnergy
-
         return energy,d_path

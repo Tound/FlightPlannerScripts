@@ -3,7 +3,7 @@
 #!/usr/bin/env python
 """
 Modified TSP for photogrammety shortest route finding
-Based on TurboFart GitHub
+Based on TurboFart GitHub https://gist.github.com/turbofart/3428880#file-tsp-py
 """
 
 import math
@@ -28,10 +28,15 @@ class RouteManager:
     min_turn = None
     uav_mass = None
     NFZs = []
+    NFZ_edges = []
     max_grad = None
+    glide_slope = None
     start_loc = None
     def addImagePass(self,image_pass):
         self.all_image_passes.append(image_pass)
+
+    def addImagePasses(self,image_passes):
+        self.all_image_passes = image_passes
     
     def getImagePass(self,index):
         return self.all_image_passes[index]
@@ -39,7 +44,7 @@ class RouteManager:
     def numberOfPasses(self):
         return len(self.all_image_passes)
 
-    def setParams(self,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc):
+    def setParams(self,wind_angle,min_turn,uav_mass,NFZs,NFZ_edges,max_grad,glide_slope,start_loc):
         """
         Added by Thomas Pound so that flight parameters can be stored 
         and passed into functions
@@ -48,7 +53,9 @@ class RouteManager:
         self.min_turn = min_turn
         self.uav_mass = uav_mass
         self.NFZs = NFZs
+        self.NFZ_edges = NFZ_edges
         self.max_grad = max_grad
+        self.glide_slope = glide_slope
         self.start_loc = start_loc
 
 
@@ -113,8 +120,8 @@ class Route:
         The energy is calculated using a cost function which takes into consideration the 
         elevation change and length of each pass
         """
-        self.dubins_paths = []
         if self.energy == 0:    # If the energy of the route has not yet been calculated
+            self.dubins_paths = []
             route_energy = 0    # Initialise energy as 0
             for index in range(0,self.routeSize()): # Cycle through every pass on route
                 current_pass,current_pass_config = self.getImagePass(index) # Store the current pass and its configuration (forwards or backwards)
@@ -277,7 +284,8 @@ class GA:
         fittest = tournament.getFittest()
         return fittest
 
-def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,populationSize=50,mutationRate=0.015,generations=50,tournamentSize=20):
+def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,NFZ_edges,max_grad,glide_slope,
+        start_loc,populationSize=50,mutationRate=0.015,generations=50,tournamentSize=20):
     """
     Travelling salesman problem
     parameters:
@@ -302,10 +310,12 @@ def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,max_grad,start_loc,popula
     image_passes.append(start_pass)
 
     routemanager = RouteManager()   # Create a new route manager
-    routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,math.radians(max_grad),start_loc)  # Set all parameters and settings
+    routemanager.setParams(wind_angle,min_turn,uav_mass,NFZs,NFZ_edges,math.radians(max_grad),
+                            math.radians(glide_slope),start_loc)  # Set all parameters and settings
     # Add all passes to the routemanagers list
-    for image_pass in image_passes:
-        routemanager.addImagePass(image_pass)
+    routemanager.addImagePasses(image_passes)
+    #for image_pass in image_passes:
+    #    routemanager.addImagePass(image_pass)
 
     pop = Population(routemanager,populationSize,True)  # Create a population
 
