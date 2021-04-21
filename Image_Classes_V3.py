@@ -6,25 +6,25 @@ import math
 from dubins_3D import *
 import shapely.geometry as sg
 
-G = 9.81    # Acceleration caused by gravity in m/s^2
+G = 9.81            # Acceleration caused by gravity in m/s^2
 MAX_TAX = 1*10**12  # Maximum tax added to routes that have sections that are considered illegal or unwanted
-
 
 class Image_Pass:
     """
+    Image pass class to represent every image pass for the TSP
     Config is used to determine whether the pass is in the standard direction 
     or to be reversed.
     If config is True, the pass should be used as normal
     If config is False, the pass should be used in reverse
     """
     def __init__(self,start,end,altitude,wind_angle):
-        self.wind_angle = wind_angle
-        self.energy = [None,None]
-        self.length = None
-        self.heading = [None,None]
-        self.start = start
-        self.end = end
-        self.altitude = altitude
+        self.wind_angle = wind_angle        # Wind angle in radians
+        self.energy = [None,None]           # Energy for each configuration
+        self.length = None                  # Length of the pass
+        self.heading = [None,None]          # Heading angles for each configuration of the pass in radians
+        self.start = start                  # Start location of the pass
+        self.end = end                      # End location of the pass
+        self.altitude = altitude            # Altitude of the pass
 
     def getStart(self,config):  # Obtain start location of a pass for a particular configuration
         if config:
@@ -145,5 +145,5 @@ class Image_Pass:
             d_path = None
             energy = 0
         else:
-            energy = d_path.length() + altEnergy
+            energy = d_path.length() *altEnergy #+ altEnergy
         return energy,d_path
