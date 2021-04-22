@@ -95,7 +95,7 @@ for a test case are present here
 
 # UAV settings
 min_turn = 10               # The minimum turn radius of the UAV in metres
-max_incline_grad = 31       # The maximum incline of the UAV in degrees
+max_incline_grad = 30       # The maximum incline of the UAV in degrees
 glide_slope = 20            # The maximum decline angle of the UAV for a succesful glide slope in degrees
 uav_mass = 18               # Mass of the UAV in Kg
 uav_speed = 15              # The desired constant speed of the UAV in metres per second
@@ -116,7 +116,7 @@ image_x, image_y = imageDimensions(cam_resolution,aspect_ratio) # Get the image 
 # GoPro HERO 4
 
 # Flight settings
-wind = (1,math.radians(45))     # Wind settings as polar coords (Magnitude, direction in radians)
+wind = (0,math.radians(45))     # Wind settings as polar coords (Magnitude, direction in radians)
 ground_sample_distance = 0.02   # The ground sample distance in metres per pixel
 altitude =  None                # The altitude of the UAV above the ground in metres
 
@@ -170,6 +170,11 @@ uav = UAV(uav_mass,uav_speed,uav_max_speed,min_turn,max_incline_grad,heading_ang
 camera = Camera(sensor_x,sensor_y,focal_length,cam_resolution,aspect_ratio,image_x,image_y)
 config = Configuration(uav,camera,side_overlap,ground_sample_distance,wind,altitude,max_pass_length,min_pass_length)
 
+polygon_edges = []
+for i in range(0,len(polygon)):
+    polygon_edges.append(Edge(polygon[i-1][0],polygon[i-1][1],
+                    polygon[i][0],polygon[i][1]))
+
 NFZ_edges = []
 for NFZ in NFZs:
     for i in range(0,len(NFZ)):
@@ -181,7 +186,7 @@ for NFZ in NFZs:
 start_time = time.clock()   # Get current time for measuring solve time
 
 # Create passes from the ROI
-image_passes = createPasses(polygon,NFZs,terrain,config) # Create pass objects for current configuration
+image_passes = createPasses(polygon,polygon_edges,NFZs,terrain,config) # Create pass objects for current configuration
 
 time_to_create_passes = time.clock()    # Store the time after the create passes algorithm is completed
 
@@ -220,7 +225,7 @@ for image_pass in image_passes:
 
 # Use TSP to find shortest route
 shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,NFZ_edges,max_incline_grad,glide_slope,
-                    start_loc,populationSize=50,generations=200,mutationRate=0.03)
+                    start_loc,populationSize=50,generations=2000,mutationRate=0.03)
 
 end_time = time.clock() - start_time    # Calculate time taken to create passes and findest shortest route
 
@@ -240,10 +245,12 @@ if current_used > battery_capacity*10**-3:
 else:
     print("Current battery capacity will suffice")
 
-dpaths = shortest_path.getDPaths()  # Get the Dubins paths that make up the shortest route
+spirals =  shortest_path.get_spirals()
+dpaths = shortest_path.get_DPaths()  # Get the Dubins paths that make up the shortest route
 
-step_size = 0.5  # Specify step size for sampling each of the created dubins paths
+step_size = 1  # Specify step size for sampling each of the created dubins paths
 
+# Sample any dubins paths required in the flight path
 for dpath in dpaths:
     # Initialise numpy arrays to store sampled points of the dubins paths
     dubins_x = np.array([])
@@ -255,5 +262,18 @@ for dpath in dpaths:
         dubins_y = np.append(dubins_y,point[1])
         dubins_z = np.append(dubins_z,point[2])
     plt.plot(dubins_x,dubins_y,dubins_z,'-yo',zorder=15,markersize = 1)    # Plot the dubins paths
+
+# Sample any spirals required in the flight path
+for spiral in spirals:
+    # Initialise numpy arrays to store sampled points of the dubins paths
+    spiral_x = np.array([])
+    spiral_y = np.array([])
+    spiral_z = np.array([])  
+    points = sample_spiral(spiral,step_size)    # Sample the spiral paths and obtain the sampled points
+    for point in points:
+        spiral_x = np.append(spiral_x,point[0])
+        spiral_y = np.append(spiral_y,point[1])
+        spiral_z = np.append(spiral_z,point[2])
+    plt.plot(spiral_x,spiral_y,spiral_z,'-yo',zorder=15,markersize = 1)    # Plot the spiral paths
 
 plt.show()

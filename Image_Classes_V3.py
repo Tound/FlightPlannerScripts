@@ -5,6 +5,7 @@
 import math
 from dubins_3D import *
 import shapely.geometry as sg
+from create_spirals import *
 
 G = 9.81            # Acceleration caused by gravity in m/s^2
 MAX_TAX = 1*10**12  # Maximum tax added to routes that have sections that are considered illegal or unwanted
@@ -114,12 +115,29 @@ class Image_Pass:
             energy              - The respective energy to travel to the next pass
             dpath               - The dubins path required to link the two passes
         """
-        d_path = None        
-        # Add spiral?
+        d_path = None    
+        spiral = None
+        energy = 0
+
         end = self.getEnd(config)
         start = other_pass.getStart(other_pass_config)
         q0 = (end[0],end[1],end[2],self.getHeading(config))
         q1 = (start[0],start[1],start[2],other_pass.getHeading(other_pass_config))
+
+        dx = start[0] - end[0]
+        dy = start[1] - end[1]
+        dz = start[2] - end[2]
+        if dz > 1:
+            # Check if too steep
+            incline_angle = math.atan2(dz, math.sqrt(dx*dx + dy*dy)) 
+            if incline_angle > routemanager.max_grad:
+                #print(f"DUBINS IS TOO STEEP!: {math.degrees(incline_angle)}")
+                #print(f"q0: {q0}, dz = {dz}, {routemanager.min_turn,routemanager.max_grad}")
+                spiral = create_spiral(q0,dz,routemanager.min_turn,routemanager.max_grad)
+                q0 = spiral.end
+            alt_energy = routemanager.uav_mass*G* dz
+        else:
+            alt_energy = 1 # If the next point is below the current
 
         d_path = dubins_shortest_path(q0,q1,routemanager.min_turn)
 
@@ -130,20 +148,17 @@ class Image_Pass:
             intersection = NFZ_edge.getEdge().intersection(edge)
             if not intersection.is_empty:
                 energy = MAX_TAX
-                return energy,d_path
+                return energy,d_path,spiral
 
-        dz = end[2] - start[2]
-        if dz > 0:
-            # Check if too steep
-            if math.atan2(dz, d_path.length_3d()) > routemanager.max_grad:
-                print("DUBINS IS TOO STEEP!")
-            altEnergy = routemanager.uav_mass*G* dz
-        else:
-            altEnergy = 0 # If the next point is below the current
-
-        if d_path.length() == 0:
+        if d_path.get_length() == 0:
             d_path = None
             energy = 0
         else:
-            energy = d_path.length() *altEnergy #+ altEnergy
-        return energy,d_path
+            energy += d_path.get_length()# *alt_energy #+ altEnergy
+
+        if spiral != None:
+            energy += spiral.get_length()
+
+        energy = energy*alt_energy
+
+        return energy,d_path,spiral

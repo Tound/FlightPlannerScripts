@@ -288,7 +288,7 @@ def coverage_check(heading_angle,start_u,pass_shift,coverage_width,coverage_heig
 
     return complete_coverage
 
-def createPasses(area,NFZs,terrain,config):
+def createPasses(area,polygon_edges,NFZs,terrain,config):
     """
     Create passes across specified area for known terrain
     Parameters
