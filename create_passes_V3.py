@@ -6,12 +6,11 @@ from shapely import affinity
 from dubins_3D import *
 from scipy.interpolate import griddata
 from Image_Classes_V3 import *
+from collections import Counter
 
 import matplotlib.pyplot as plt
 
-import time
-
-G = 9.81
+G = 9.81        # Acceleration due to gravity
 
 class Edge:
     """
@@ -33,27 +32,40 @@ class Edge:
     def getEdge(self):
         return self.edge
 
+    def __repr__(self):
+        return f"([{self.x1},{self.y1}),({self.x2},{self.y2}])"
+
 def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start_v,wind_angle):
     """
-    Obtain altitude data for entire pass across generated terrain
+    Obtain altitude data for an entire pass across generated terrain
+    Params:
+        pass_length - Length of the pass in metres
+        terrain - The 2D terrain of elevation values
+        uav_altitude - The desired UAV altitude
+        u - Current u coordinate
+        start_v - Start v coordinate for the pass
+        wind_angle - Direction of the wind in radians
+    Returns:
+        altitude_profile - The calculated altitude profile for the pass
     """
     altitude_profile = []
     v = start_v
-    for k in range(0,round(pass_length)):
-        coord = convertCoords([[u,v]],wind_angle,'xy')
+    for i in range(0,round(pass_length)):               # Loop for the length of the pass
+        coord = convertCoords([[u,v]],wind_angle,'xy')  # Convert coordinates back to xy coordinate system for the terrain
         x = coord[0][0]
         y = coord[0][1]
-        x_points = [int(x),int(x),int(x)+1,int(x)+1]
+        # Take the integer points around the desired elevation point
+        x_points = [int(x),int(x),int(x)+1,int(x)+1]    
         y_points = [int(y),int(y)+1,int(y)+1,int(y)]
         z_points = [terrain[int(y)][int(x)],terrain[int(y)+1][int(x)],
                     terrain[int(y)+1][int(x)+1],terrain[int(y)][int(x)+1]]
 
         # For created terrain ONLY
-        z = griddata((x_points,y_points),z_points,(x,y))    # Interpolate        
-        altitude = z + uav_altitude
+        z = griddata((x_points,y_points),z_points,(x,y))    # Interpolate terrain to find elevation inbetween points
+        altitude = z + uav_altitude                         # Store the altitude above sea level
 
-        altitude_profile.append(altitude)
-        v +=1
+        altitude_profile.append(altitude)   # Add the altitude value to the altitude profile
+        v +=1   # Move up to the next coordinate on the pass
     return altitude_profile
 
 def getDistance(point1,point2):
@@ -75,16 +87,15 @@ def convertCoords(vertices,angle,coord_system):
     Using   [u] = [ cos(theta) + sin(theta)][x]
             [v]   [-sin(theta) + cos(theta)][y]
     """
-    theta = angle
-    new_coords = []
-    # Matrix multiplication?
-    if coord_system == 'uv':
+    theta = angle       # Store the angle
+    new_coords = []     # Initialise an empty array to store the new coordinates
+    if coord_system == 'uv':    # If the requested coordinate system is uv
         for vertex in vertices:
             u = vertex[0]*math.cos(theta) + vertex[1]*math.sin(theta)
             v = -vertex[0]*math.sin(theta) + vertex[1]*math.cos(theta)
             new_coord = [u,v]
             new_coords.append(new_coord)
-    elif coord_system == 'xy':
+    elif coord_system == 'xy':  # If the requested coordinate system is xy
         scaler = 1/(math.cos(theta) * math.cos(theta) + math.sin(theta) * math.sin(theta))
         for vertex in vertices:
             x = scaler*(vertex[0]*math.cos(theta) - vertex[1]*math.sin(theta))
@@ -97,15 +108,30 @@ def convertCoords(vertices,angle,coord_system):
 
 def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,min_terrace_len):
     """
-    Splits pass into terraces
+    Splits pass into terraces using the altitude profile
+    Params:
+        u - Current u value
+        v - Current v value
+        altitude_profile - The altitude profile for this pass
+        wind_angle - The wind direction in radians
+        pass_length - The length of the entire pass in metres
+        image_passes - The current list of all image passes
+        max_alt_diff - The maximum altitude different allowed
+        min_terrace_len - The minimum length of a terrace/pass
+    Returns:
+        image_passes - Updated list of all image passes
     """
     # Create terraces from pass
-    current_terrace = []        # Initilise current terrace points as empty
-    average_alt = 0             # Store the average altitude
-    if len(altitude_profile) > 0: # If there is some altitude data for this pass
-        max_altitude = np.max(altitude_profile)
-        min_altitude = np.min(altitude_profile)
+
+    lookahead = 3                                       # Initialise how many values to look ahead in altitude profile
+    current_terrace = []                                # Initialise current terrace points as empty
+    average_alt = 0                                     # Store the average altitude
+    if len(altitude_profile) > 0:                       # If there is some altitude data for this pass
+        max_altitude = np.max(altitude_profile)         # Store the maximum altitude for the pass
+        min_altitude = np.min(altitude_profile)         # Store the minimum altitude for the pass
         if max_altitude - min_altitude < max_alt_diff:  # If the entire pass is within the altitude limits
+            # Make entire pass into a terrace of average height
+
             # Find the mean altitude
             for i in range(0,len(altitude_profile)):
                 average_alt += altitude_profile[i]
@@ -113,28 +139,36 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
             terrace_start = (u,v,average_alt)
             terrace_end = (u,v+pass_length,average_alt)
 
+            # Convert the terrace coords back to xy and set the start and end points of the terrace
             coords = convertCoords([[terrace_start[0],terrace_start[1]]],wind_angle,'xy')
             terrace_start = (coords[0][0],coords[0][1],average_alt)
 
             coords = convertCoords([[terrace_end[0],terrace_end[1]]],wind_angle,'xy')
             terrace_end = (coords[0][0],coords[0][1],average_alt)
 
+            # Add new image pass
             image_passes.append(Image_Pass(terrace_start,terrace_end,average_alt,wind_angle))
         else:
             # Calculate terraces
             index = 0
 
-            current_altitude = 0
-            current_min_altitude = 0
-            current_max_altitude = 0
+            current_altitude = -1        # Store the current altitude of the terrace
+            current_min_altitude = -1    # Store the current minimum altitude of the terrace
+            current_max_altitude = -1    # Store the current maximum altitude of the terrace
+
             while index < len(altitude_profile):
-                if index + 3 > len(altitude_profile):
-                    if current_altitude == 0:
-                        for alt in range(0,2):
+
+                if index + lookahead > len(altitude_profile):       # If unable to look ahead 3 samples (3 metres)
+                    if current_altitude == -1:              # If no points are currently in the terrace (current altitude is invalid)
+                        for alt in range(0,lookahead-1):              # Take average of the rest of the data
                             current_altitude += altitude_profile[index+alt]
                         current_altitude = current_altitude/3
-                    for val in range(0,3):
-                        current_terrace.append([x,y,current_altitude])
+                    
+                    # Use current altitude previously calculated from the terrace
+                    for val in range(0,lookahead-1):
+                        coords = convertCoords([[u,v+index+val]],wind_angle,'xy')
+                        current_terrace.append([coords[0][0],coords[0][1],current_altitude])  # Add points to terrace at the current altitude
+
                     # Add all to current pass
                     terrace_start = current_terrace[0]
                     terrace_end = current_terrace[len(current_terrace)-1]
@@ -146,7 +180,7 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                     grad = altitude_profile[index+1] - altitude_profile[index]
                     grad += altitude_profile[index+2] - altitude_profile[index]
                     #grad += altitude_profile[index+3] - altitude_profile[index]
-                    grad = grad/2
+                    grad = grad/2           # Take the average of the gradient
                     coords = convertCoords([[u,v+index]],wind_angle,'xy')
                     x = coords[0][0]
                     y = coords[0][1]
@@ -201,27 +235,38 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                             coords = convertCoords([[u,v+index]],wind_angle,'xy')
                             x = coords[0][0]
                             y = coords[0][1]
-                            current_terrace.append([x,y,current_altitude])
+                            current_terrace.append([x,y,current_altitude])  # Add point to terrace
                             #current_max_altitude += max_alt_diff/2
                             #current_min_altitude -+ max_alt_diff/2
-
                 index += 1
     else:
         pass
     return image_passes
 
 def coverage_check(heading_angle,start_u,pass_shift,coverage_width,coverage_height):
+    """
+    Ensures that the heading angle does not affect complete coverage of the area
+    Params:
+        heading_angle - The heading angle of the UAV in radians
+        start_u - The current u value
+        pass_shift - The u shift of the passes
+        coverage_width - Coverage width of the image footprint in metres
+        coverage_height - Coverage height of the image footprint in metres
+    Returns:
+        complete_coverage -  Boolean value indicating whether the coverage of the image footprints is complete
+    """
     complete_coverage = True
     # Create edges
     area_bound_point = start_u
+    # Find center points of 2 camera footprints that are placed on top of each other (0% overlap)
     center1 = (start_u + coverage_width/2 + pass_shift,0)
     center2 = (start_u + coverage_width/2 + pass_shift,coverage_height)
-    # Edges for first camera footprint
+    # Create path for first camera footprint
     footprint1 = sg.Polygon([(center1[0] - coverage_width/2,center1[1] + coverage_height/2),
                             (center1[0] + coverage_width/2,center1[1] + coverage_height/2),
                             (center1[0] + coverage_width/2,center1[1] - coverage_height/2),
                             (center1[0] - coverage_width/2,center1[1] - coverage_height/2)])
-    # Edges for second camera footprint
+    # Create path for second camera footprint
     footprint2 = sg.Polygon([(center2[0] - coverage_width/2,center2[1] + coverage_height/2),
                             (center2[0] + coverage_width/2,center2[1] + coverage_height/2),
                             (center2[0] + coverage_width/2,center2[1] - coverage_height/2),
@@ -236,28 +281,12 @@ def coverage_check(heading_angle,start_u,pass_shift,coverage_width,coverage_heig
     # If coverage is complete
     # Get vertices
     # Sutherland-Hodgman for zero overlap
-    plt.plot(*rotated_footprint1.exterior.xy,'-ro')
-    plt.plot(*rotated_footprint2.exterior.xy,'-bo')
-    plt.plot(*intersection_points.exterior.xy,'-go')
-    plt.plot([area_bound_point,area_bound_point],[-coverage_height,2*coverage_height],'-yo')
-
-    plt.title(f'Checking for complete coverage after wind compensation\nHeading angle of {round(math.degrees(heading_angle),2)} degrees')
-    plt.legend(['Footprint 1','Footprint 2','Intersection area','Area bounds'],loc=1)
-    plt.xlabel('u')
-    plt.ylabel('v')
-
-    #plt.axis('equal')
-    plt.xlim([area_bound_point - coverage_width/2, area_bound_point+1.5*coverage_width])
-
-
-    plt.show()
     u,v = intersection_points.exterior.xy
     sorted_points = sorted(u)
     if sorted_points[0] > start_u:
         complete_coverage = False
 
     return complete_coverage
-
 
 def createPasses(area,polygon_edges,NFZs,terrain,config):
     """
@@ -276,7 +305,7 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
     image_passes = []   # Initialise list of image_passes as empty
 
     # In case of a windless environment
-    if config.wind[0] == 0:     # If the wind has no magnitude
+    if config.wind[0] == 0:         # If the wind has no magnitude
         # Find the largest edge
         length = 0
         largest_edge = None
@@ -297,36 +326,75 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
         print(f"New wind angle: {wind_angle}")
 
 
-    # Update coordinate system
-    new_area_coords = convertCoords(area,wind_angle,'uv')
+    # Create new ROI coords for the updated coordinate system
+    new_area_coords = convertCoords(area,wind_angle,'uv')   # Convert xy coordinates to uv system
+
+    # Create new NFZ coords for the updated coordinate system
     new_NFZs = []
     for NFZ in NFZs:
-        new_NFZ_coords = convertCoords(NFZ,wind_angle,'uv')
+        new_NFZ_coords = convertCoords(NFZ,wind_angle,'uv') # Convert xy coordinates to uv system
         new_NFZs.append(new_NFZ_coords)
 
-    # Find footprint size
-    coverage_width = config.ground_sample_distance * camera.image_x
-    coverage_height = config.ground_sample_distance * camera.image_y
+    # Find camera footprint size
+    # If GSD is available
+    if config.altitude is None and config.ground_sample_distance is not None:
+        coverage_width = config.ground_sample_distance * camera.image_x
+        coverage_height = config.ground_sample_distance * camera.image_y
 
-    uav_altitude = coverage_width *camera.focal_length/camera.sensor_x
-    max_uav_alt = (camera.image_x * (config.ground_sample_distance + 0.0015)) * camera.focal_length/camera.sensor_x
-    min_uav_alt = (camera.image_x * (config.ground_sample_distance - 0.0015)) * camera.focal_length/camera.sensor_x
+        uav_altitude = coverage_width *camera.focal_length/camera.sensor_x
+        max_uav_alt = (camera.image_x * (config.ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x
+        min_uav_alt = (camera.image_x * (config.ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x
 
+        config.altitude = uav_altitude
+
+    # If altitude is available
+    elif config.altitude is not None and config.ground_sample_distance is None:
+        coverage_width = (camera.sensor_x*config.altitude/camera.focal_length)  # In meters
+        coverage_height = (camera.sensor_y*config.altitude/camera.focal_length) # In meters
+
+        uav_altitude = config.altitude
+
+        ground_sample_distance = uav_altitude*camera.sensor_x/(camera.focal_length * camera.image_x)    # Coverage width / image width
+        config.ground_sample_distance = ground_sample_distance
+        max_uav_alt = (camera.image_x * (ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
+        min_uav_alt = (camera.image_x * (ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
+
+    # If both have been initialised
+    elif config.altitude is not None and config.ground_sample_distance is not None:     
+        coverage_width = (camera.sensor_x*config.altitude/camera.focal_length)          # In meters
+        coverage_height = (camera.sensor_y*config.altitude/camera.focal_length)         # In meters
+
+        # Look for conflicts
+        uav_altitude = config.altitude                                                  # In meters
+        ground_sample_distance = uav_altitude*camera.sensor_x/(camera.focal_length * camera.image_x)
+        if ground_sample_distance != config.ground_sample_distance:
+            print(f"Conflict with GSD, taking altitude as true. New GSD: {ground_sample_distance}")
+            config.ground_sample_distance = ground_sample_distance  # Sd
+        
+        max_uav_alt = (camera.image_x * (config.ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
+        min_uav_alt = (camera.image_x * (config.ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
+
+    else:
+        print("Requires atleast one value of altitude or gsd")
+
+
+    # Calculate the distance between photos using the side overlap
     distance_between_photos_width = coverage_width - coverage_width*config.side_overlap
 
-    if coverage_height/2 > config.uav.min_turn:
-        print("Warning - At this altitude the UAV will mostly likely fly into an NFZ" + 
-        " as the minimum turn radius is larger than the area between the end of passes"+ 
+    # Check if UAV is likely to enter an NFZ
+    if coverage_height/2 > config.uav.min_turn and len(NFZs) > 0:
+        print("Warning - At this altitude the UAV will mostly likely fly into an NFZ\n " + 
+        " as the minimum turn radius is larger than the area between the end of passes\n "+ 
         " and the NFZ boundary. Consider increasing altitude or the ground sample_resolution.")
 
     # Obtain properties about the area
-    sorted_vertices = sorted(new_area_coords, key=lambda u:u[0])
-    length_of_area = abs(sorted_vertices[len(sorted_vertices)-1][0] - sorted_vertices[0][0])  # Obtain the  horizontal length of the area in pixels
+    sorted_vertices = sorted(new_area_coords, key=lambda u:u[0])    # Sort the new vertices by u value
+    length_of_area = abs(sorted_vertices[len(sorted_vertices)-1][0] - sorted_vertices[0][0])  # Obtain the width of the area in pixels
 
     np_area = np.array(new_area_coords)         # Convert the new coords to a numpy array for easier work
-    max_height = np.max(np_area[:,1])           # Store highest V value of the entire area
-    min_height = np.min(np_area[:,1])           # Store lowest V value of the entire area
-    start_u = np.min(np_area[:,0])              # Save the left most horizontal value for the start of the area
+    max_height = np.max(np_area[:,1])           # Store highest v value of the entire area
+    min_height = np.min(np_area[:,1])           # Store lowest v value of the entire area
+    start_u = np.min(np_area[:,0])              # Save the smallest u value for the start of the area
     
     # Calculate the number of passes that will cover the area
     number_of_passes = (length_of_area-config.side_overlap*coverage_width)/distance_between_photos_width
@@ -356,23 +424,14 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
     else:
         print("There is no wind and therefore no heading angle compensation")
 
-    polygon_edges = []
-    NFZ_edges = []
+    # Create polygon and NFZ paths to check for intersections with passes
+    polygon_path = sg.Polygon(new_area_coords)
+    NFZ_paths = []
+    for NFZ in new_NFZs:
+        NFZ_path = sg.Polygon(NFZ)
+        NFZ_paths.append(NFZ_path)
 
-    # Create all new polygon edges
-    for i in range(0,len(new_area_coords)):
-        polygon_edges.append(Edge(new_area_coords[i-1][0],new_area_coords[i-1][1],
-                                    new_area_coords[i][0],new_area_coords[i][1]))
-    
-    # Create all new NFZ edges
-    for NFZ_coords in new_NFZs:
-        for i in range(0,len(NFZ_coords)):
-            NFZ_edges.append(Edge(NFZ_coords[i-1][0],NFZ_coords[i-1][1],
-                                    NFZ_coords[i][0],NFZ_coords[i][1]))
-
-    # Set terrace properties
-    # Min terrace length
-    min_terrace_length = 20
+    # Set maximum altitude difference
     max_alt_diff = max_uav_alt - min_uav_alt
 
     # Shift passes to allow for even distribution
@@ -380,66 +439,54 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
     for i in range(0,number_of_passes):        # Cycle through all full-length passes across entirety of area
         # Find points where passes intersect with ROI
 
-        intersection_points = []    #Points of intersection for each pass
+        intersection_points = []    # Points of intersection for each pass
         pass_edge = sg.LineString([(u,min_height-1),(u,max_height+1)])
 
-        max_intersect = [-math.inf,-math.inf]
-        min_intersect = [math.inf,math.inf]
-
-        for edge in polygon_edges:
-            intersection = edge.getEdge().intersection(pass_edge)
-            if intersection.is_empty:
-                continue
-            if type(intersection) == sg.Point:
-                 if intersection.y >= max_intersect[1]:               # Even though we are using uv axis, shapely requires xy
-                     max_intersect = [intersection.x,intersection.y]
-                 if intersection.y <= min_intersect[1]:
-                     min_intersect = [intersection.x,intersection.y]
-                #intersection_points.append([intersection.x,intersection.y])
-            elif type(intersection) == sg.LineString:
-                for point in intersection.coords:
-                    if point[1] >= max_intersect[1]:
-                        max_intersect = [point[0],point[1]]
-                    if point[1] <= min_intersect[1]:
-                        min_intersect = [point[0],point[1]]
-                    #intersection_points.append([point[0],point[1]])
-        intersection_points.extend([min_intersect,max_intersect])
-
-
+        # Fixed bug with edge crossing, tried removing duplicates
+        intersection = polygon_path.intersection(pass_edge)
+        if intersection.is_empty:   # If there is no intersection with the ROI, must be an error
+            print("Pass did not intersect anywhere on the ROI")
+            exit(1)
+        elif type(intersection) == sg.Point:        # If the intersection is at a single point (Corner of the path), add the point twice
+            intersection_points.append([intersection.x,intersection.y])
+            intersection_points.append([intersection.x,intersection.y])
+        elif type(intersection) == sg.LineString:   # If the intersection is multiple coordinates, cycle through and add all
+            for point in intersection.coords:
+                intersection_points.append([point[0],point[1]])
 
         # Find where passes intersect with NFZs
-        for edge in NFZ_edges:        # Cycle through all NFZs
-            intersection = edge.getEdge().intersection(pass_edge)
-            if intersection.is_empty:
+        for NFZ_path in NFZ_paths:
+            intersection = NFZ_path.intersection(pass_edge)
+            if intersection.is_empty:   # If there is no intersection with an NFZ, continue
                 continue
-            else:
+            elif type(intersection) == sg.Point:        # If the intersection is at a single point (Corner of the path), add the point twice
                 intersection_points.append([intersection.x,intersection.y])
+                intersection_points.append([intersection.x,intersection.y])
+            elif type(intersection) == sg.LineString:   # If the intersection is multiple coordinates, cycle through and add all
+                for point in intersection.coords:
+                    intersection_points.append([point[0],point[1]])
 
-        # Remove duplicates?
 
         points_on_pass = sorted(intersection_points,key=lambda point:point[1])   # List vertically
-        subpasses = len(points_on_pass)/2
-
-        print(points_on_pass)
-        print(subpasses)
+        subpasses = len(points_on_pass)/2   # Calculate the number of subpasses
+        
         for j in range(0,int(subpasses)):   # Split full length passes into sub passes if obstacles are found
             start = points_on_pass[j*2]
             end = points_on_pass[j*2 + 1]
-            pass_length = getDistance(start,end)-coverage_height
-            print(f"Start: {start}, End: {end}, Length: {pass_length}")
-            if pass_length <= 0:
-                print("Pass length is too small")
+            pass_length = getDistance(start,end)-coverage_height    # Calculate the pass length and remove the height of the camera footprint
+            if pass_length <= config.min_pass_length:               # Check to see if pass is to size
+                print("Pass length is too small")                   # If pass is too small, continue
                 continue
 
-            start_v = start[1] + coverage_height/2  # Shift pass up by half the size of an image height
+            v = start[1] + coverage_height/2  # Shift pass up by half the size of the coverage height
 
             # Get altitude data
-            altitude_profile = getAltitudeProfile(pass_length,terrain,uav_altitude,u,start_v,wind_angle)
-
-            v = start_v
-            image_passes = createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,min_terrace_length)
+            altitude_profile = getAltitudeProfile(pass_length,terrain,uav_altitude,u,v,wind_angle)
+            # Create terraces from the pass
+            image_passes = createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,config.min_pass_length)
         u += distance_between_photos_width          # Increase U value on each loop
 
+    # Print stats
     print(f"length = {length_of_area}")
     print(f"Footprint of image: {coverage_width}x{coverage_height}")
     print(f"Distance between passes: {round(distance_between_photos_width,2)} m")

@@ -31,13 +31,13 @@ class DubinsPath:
         self.path_type = -1
         self.altitude = 0
 
-    def length(self):
+    def get_length(self):
         length = 0
         length = self.params[0] + self.params[1] + self.params[2]
         length = length*self.rho
         return length
 
-    def length_3d(self):
+    def get_length_3d(self):
         length_2d = self.params[0] + self.params[1] + self.params[2]
         length = math.sqrt(length_2d*length_2d + self.altitude*self.altitude)
         length = length*self.rho
@@ -137,7 +137,7 @@ def dubins_path_sample(path,stepSize,q,alt):
 
     #alt = 50/292#path.altitude
     #print(tprime)
-    if stepSize<0 or stepSize> path.length():
+    if stepSize<0 or stepSize> path.get_length():
         return 2
     qi = (0.0,0.0,0.0,path.qi[3])
     segments = path_segments[path.path_type]
@@ -166,7 +166,7 @@ def dubins_path_sample_many(path, stepSize):
     global points
     points = []
     x = 0
-    length = path.length()
+    length = path.get_length()
     #altitude_steps = stepSize*length/stepSize
     try:
         alt = path.altitude/length

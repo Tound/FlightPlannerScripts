@@ -64,6 +64,7 @@ class Route:
     Route class represents an entire route that links all image passes
     """
     dubins_paths = []   # Stores all dubins path objects
+    spirals = []
     def __init__(self,routemanager,route=None):
         self.routemanager = routemanager
         self.route = []
@@ -122,6 +123,7 @@ class Route:
         """
         if self.energy == 0:    # If the energy of the route has not yet been calculated
             self.dubins_paths = []
+            self.spirals = []
             route_energy = 0    # Initialise energy as 0
             for index in range(0,self.routeSize()): # Cycle through every pass on route
                 current_pass,current_pass_config = self.getImagePass(index) # Store the current pass and its configuration (forwards or backwards)
@@ -134,9 +136,12 @@ class Route:
                     destination_pass,destination_pass_config = self.getImagePass(0)         # Make destination pass the first pass in list to create link
 
                 # Obtain energy and the dubins path required to connect the passes
-                energy,dpath = current_pass.energyTo(current_pass_config,destination_pass,destination_pass_config,self.routemanager)
+                energy,dpath,spiral = current_pass.energyTo(current_pass_config,destination_pass,destination_pass_config,self.routemanager)
+
                 if dpath is not None:
                     self.dubins_paths.append(dpath) # Add the shortest dubins path between the passes
+                if spiral is not None:
+                    self.spirals.append(spiral)
                 route_energy += energy              # Add calculated energy to link passes
             self.energy = route_energy              # Store calculated energy for this route
         return self.energy
@@ -149,17 +154,19 @@ class Route:
         for image_pass in self.route:
             length += image_pass[0].getLength()
         for dubins_path in self.dubins_paths:
-            length += dubins_path.length()
+            length += dubins_path.get_length()
         self.length = length
         return self.length
 
 
-    def getDPaths(self):
+    def get_DPaths(self):
         """
         Added by Thomas Pound
         Get the calculated shortest dubins paths to link the passes
         """
         return self.dubins_paths
+    def get_spirals(self):
+        return self.spirals
 
     def routeSize(self):
         return len(self.route)
