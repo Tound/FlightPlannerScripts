@@ -1,4 +1,8 @@
-# Create Passes
+"""
+Creates passes and terraces for a photogrammtry flight path
+Created by Thomas Pound
+Last updated 30/4/21
+"""
 import math
 import numpy as np
 import shapely.geometry as sg
@@ -6,7 +10,7 @@ from shapely import affinity
 from dubins_3D import *
 from scipy.interpolate import griddata
 from Image_Classes_V3 import *
-from collections import Counter
+from camera_calculations import *
 
 import matplotlib.pyplot as plt
 
@@ -338,42 +342,40 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
     # Find camera footprint size
     # If GSD is available
     if config.altitude is None and config.ground_sample_distance is not None:
-        coverage_width = config.ground_sample_distance * camera.image_x
-        coverage_height = config.ground_sample_distance * camera.image_y
 
-        uav_altitude = get_altitude()
-        uav_altitude = coverage_width *camera.focal_length/camera.sensor_x
-        max_uav_alt = (camera.image_x * (config.ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x
-        min_uav_alt = (camera.image_x * (config.ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x
+        coverage_width, coverage_height = camera.get_coverage_size_gsd(config.ground_sample_distance)   # In metres
+        uav_altitude = camera.get_altitude(coverage_width)
+
+        max_uav_alt = camera.get_altitude_from_gsd(config.ground_sample_distance + config.ground_sample_distance/10)
+        min_uav_alt = camera.get_altitude_from_gsd(config.ground_sample_distance - config.ground_sample_distance/10)
 
         config.altitude = uav_altitude
 
     # If altitude is available
     elif config.altitude is not None and config.ground_sample_distance is None:
-        coverage_width = (camera.sensor_x*config.altitude/camera.focal_length)  # In meters
-        coverage_height = (camera.sensor_y*config.altitude/camera.focal_length) # In meters
+        coverage_width, coverage_height = camera.get_coverage_size_alt(config.altitude) # In meters
 
         uav_altitude = config.altitude
 
-        ground_sample_distance = uav_altitude*camera.sensor_x/(camera.focal_length * camera.image_x)    # Coverage width / image width
+        ground_sample_distance = camera.get_gsd_from_alt(uav_altitude)    # Get GSD
         config.ground_sample_distance = ground_sample_distance
-        max_uav_alt = (camera.image_x * (ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
-        min_uav_alt = (camera.image_x * (ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
+        
+        max_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance + config.ground_sample_distance/10)
+        min_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance - config.ground_sample_distance/10)
 
     # If both have been initialised
-    elif config.altitude is not None and config.ground_sample_distance is not None:     
-        coverage_width = (camera.sensor_x*config.altitude/camera.focal_length)          # In meters
-        coverage_height = (camera.sensor_y*config.altitude/camera.focal_length)         # In meters
+    elif config.altitude is not None and config.ground_sample_distance is not None:
+        coverage_width, coverage_height = camera.get_coverage_size_alt(config.altitude)        # In meters
 
         # Look for conflicts
         uav_altitude = config.altitude                                                  # In meters
-        ground_sample_distance = uav_altitude*camera.sensor_x/(camera.focal_length * camera.image_x)
+        ground_sample_distance = camera.get_gsd_from_alt(uav_altitude)
         if ground_sample_distance != config.ground_sample_distance:
             print(f"Conflict with GSD, taking altitude as true. New GSD: {ground_sample_distance}")
             config.ground_sample_distance = ground_sample_distance  # Sd
-        
-        max_uav_alt = (camera.image_x * (config.ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
-        min_uav_alt = (camera.image_x * (config.ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x # In meters
+            
+        max_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance + config.ground_sample_distance/10)
+        min_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance - config.ground_sample_distance/10)
 
     else:
         print("Requires atleast one value of altitude or gsd")

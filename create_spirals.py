@@ -1,9 +1,8 @@
-# Creating spirals
 """
 Script used to create and sample spirals for the creation of
 efficient flight paths.
 Created by Thomas Pound
-Last updated 23/4/21
+Last updated 30/4/21
 """
 
 import math

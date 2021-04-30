@@ -1,6 +1,9 @@
-# These classes are to be used with the Efficient flight planning software
-# created by Thomas Pound for the MEng Project
-# The classes include an Image_Pass and Image_Location
+"""
+These classes are to be used with the Efficient flight planning software
+Created by Thomas Pound for the MEng Project
+The classes include an Image_Pass and Image_Location
+Last updated 30/4/21
+"""
 
 import math
 from dubins_3D import *
@@ -131,8 +134,6 @@ class Image_Pass:
             # Check if too steep
             incline_angle = math.atan2(dz, math.sqrt(dx*dx + dy*dy)) 
             if incline_angle > routemanager.max_grad:
-                #print(f"DUBINS IS TOO STEEP!: {math.degrees(incline_angle)}")
-                #print(f"q0: {q0}, dz = {dz}, {routemanager.min_turn,routemanager.max_grad}")
                 spiral = create_spiral(q0,dz,routemanager.min_turn,routemanager.max_grad)
                 q0 = spiral.end
             alt_energy = routemanager.uav_mass*G* dz
@@ -154,7 +155,7 @@ class Image_Pass:
             d_path = None
             energy = 0
         else:
-            energy += d_path.get_length()# *alt_energy #+ altEnergy
+            energy += d_path.get_length()
 
         if spiral != None:
             energy += spiral.get_length()

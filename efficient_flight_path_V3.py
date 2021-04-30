@@ -2,6 +2,7 @@
 """
 Main file to be called to create an efficient flight path for a polygon
 and corresponding NFZs for a given terrain
+Last updated 30/4/21
 """
 import math
 import numpy as np
@@ -10,24 +11,10 @@ from opensimplex import OpenSimplex
 
 from create_passes_V3 import *
 from Passes_TSP_V3 import *
-from camera_calculations import *
 from Image_Classes_V3 import *
 
 import time
 import sys
-
-class Camera:
-    """
-    Camera class holds all camera settings for a specific flight
-    """
-    def __init__(self,sensor_x,sensor_y,focal_length,resolution,aspect_ratio,image_x=None,image_y=None):
-        self.sensor_x = sensor_x            # Width of camera sensor in m
-        self.sensor_y = sensor_y            # Height of camera sensor in m
-        self.focal_length = focal_length    # Focal length of the camera in m
-        self.resolution = resolution        # Resolution of the camera in megapixels
-        self.aspect_ratio = aspect_ratio    # Aspect ratio of the camera as a tuple in the form (x,y)
-        self.image_x = image_x              # Width of the image in pixels
-        self.image_y = image_y              # Height of the image in pixels
 
 class UAV:
     """
@@ -111,8 +98,6 @@ focal_length = 20  *10**-3  # The focal length of the camera in metres
 aspect_ratio = (3,2)        # The aspect ratio of an image taken with the camera in the form x:y
 cam_resolution = 24         # The resolution of the camera in Megapixels
 
-image_x, image_y = get_image_dimensions(cam_resolution,aspect_ratio) # Get the image dimensions
-
 # Flight settings
 wind = (5,math.radians(90))     # Wind settings as polar coords (Magnitude, direction in radians)
 ground_sample_distance = 0.02   # The ground sample distance in metres per pixel
@@ -170,7 +155,7 @@ else:
 
 # Create UAV, camera and configuration object and store all variables
 uav = UAV(uav_mass,uav_speed,uav_max_speed,min_turn,max_incline_grad,heading_angle)
-camera = Camera(sensor_x,sensor_y,focal_length,cam_resolution,aspect_ratio,image_x,image_y)
+camera = Camera(sensor_x,sensor_y,focal_length,cam_resolution,aspect_ratio)
 config = Configuration(uav,camera,side_overlap,ground_sample_distance,wind,altitude,max_pass_length,min_pass_length)
 
 polygon_edges = []
