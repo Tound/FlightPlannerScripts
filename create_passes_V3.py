@@ -341,6 +341,7 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
         coverage_width = config.ground_sample_distance * camera.image_x
         coverage_height = config.ground_sample_distance * camera.image_y
 
+        uav_altitude = get_altitude()
         uav_altitude = coverage_width *camera.focal_length/camera.sensor_x
         max_uav_alt = (camera.image_x * (config.ground_sample_distance + config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x
         min_uav_alt = (camera.image_x * (config.ground_sample_distance - config.ground_sample_distance/10)) * camera.focal_length/camera.sensor_x
@@ -477,6 +478,9 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
             if pass_length <= config.min_pass_length:               # Check to see if pass is to size
                 print("Pass length is too small")                   # If pass is too small, continue
                 continue
+            elif pass_length > config.max_pass_length:
+                print("Pass length is too large, aborting")
+                exit(1)
 
             v = start[1] + coverage_height/2  # Shift pass up by half the size of the coverage height
 

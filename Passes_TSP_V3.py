@@ -87,11 +87,15 @@ class Route:
         self.route[index] = value
 
     def __repr__(self):
-        geneString = ""
-        for i in range(0, self.routeSize()):
+        start_loc,pass_config = self.getImagePass(0)
+        gene_string = f"Start location: {[round(coord,2) for coord in start_loc.getStart(pass_config)[:2]]}, "\
+                            f"Altitude: {round(start_loc.altitude,2)}m\n"
+        for i in range(1, self.routeSize()):
             image_pass,pass_config = self.getImagePass(i)
-            geneString += "(" + str(image_pass) + str(pass_config) + "),"
-        return geneString[:len(geneString)-1]
+            gene_string += f"{i}. Start: {[round(coord,2) for coord in image_pass.getStart(pass_config)[:2]]}, "\
+                                    f"End: {[round(coord,2) for coord in image_pass.getEnd(pass_config)[:2]]}, "\
+                                    f"Altitude: {round(image_pass.altitude,2)} m\n"
+        return gene_string[:len(gene_string)-2]
 
     def getRoute(self):
         return self.route

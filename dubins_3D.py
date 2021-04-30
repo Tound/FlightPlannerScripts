@@ -349,9 +349,9 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import numpy as np
 
-    q0 = (0,0,0,math.pi)
-    q1 = (200,100,-500,-math.pi/2)
-    min_turn = 200
+    q0 = (10,0,20,math.pi/3)
+    q1 = (20,0,-50,-math.pi/6)
+    min_turn = 10
     dubins_path = dubins_shortest_path(q0,q1,min_turn)
 
     points = dubins_path_sample_many(dubins_path,0.1)
@@ -366,6 +366,10 @@ if __name__ == '__main__':
 
     fig = plt.figure(num=1,clear=True,figsize=(12,8))
     ax = fig.add_subplot(1,1,1,projection='3d')
+    ax.set(title=f"3D Dubins path generated\nStart: {[round(val,2) for val in q0[:3]]} with a heading of {round(math.degrees(q0[3]),2)} degs"
+                    f"\nEnd: {[round(val,2) for val in q1[:3]]} with a heading of {round(math.degrees(q1[3]),2)} degs",xlabel='x', ylabel='y', zlabel='z = Height (m)')
+
     plt.plot(x,y,z)
-    plt.plot(q0[0],q0[1],q0[2],'ro',markersize=2)
+    plt.plot(q0[0],q0[1],q0[2],'ro',markersize=3)
+    plt.plot(q1[0],q1[1],q1[2],'ro',markersize=3)
     plt.show()

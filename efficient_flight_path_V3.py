@@ -97,35 +97,33 @@ for a test case are present here
 min_turn = 10               # The minimum turn radius of the UAV in metres
 max_incline_grad = 30       # The maximum incline of the UAV in degrees
 glide_slope = 20            # The maximum decline angle of the UAV for a succesful glide slope in degrees
-uav_mass = 18               # Mass of the UAV in Kg
+uav_mass = 2.6               # Mass of the UAV in Kg
 uav_speed = 15              # The desired constant speed of the UAV in metres per second
 uav_max_speed = 20          # The maximum speed of the UAV in metres per second
 max_current_draw = 20       # The maximum current draw of the UAV in Amps
 battery_capacity = 2200     # The battery capacity in milliAmp Hours
 
-# Camera settings
+# Camera settings - Altered to match specs similar to the sony a6000
 side_overlap = 0.6          # Decimal value of the side overlap of the image footprint
-sensor_x = 5.62    *10**-3  # The camera sensor width in metres
-sensor_y = 7.4     *10**-3  # The camera sensor height in metres
-focal_length = 3.6 *10**-3  # The focal length of the camera in metres
-aspect_ratio = (4,3)        # The aspect ratio of an image taken with the camera in the form x:y
-cam_resolution = 12         # The resolution of the camera in Megapixels
+sensor_x = 23.5    *10**-3  # The camera sensor width in metres
+sensor_y = 15.6    *10**-3  # The camera sensor height in metres
+focal_length = 20  *10**-3  # The focal length of the camera in metres
+aspect_ratio = (3,2)        # The aspect ratio of an image taken with the camera in the form x:y
+cam_resolution = 24         # The resolution of the camera in Megapixels
 
-image_x, image_y = imageDimensions(cam_resolution,aspect_ratio) # Get the image dimensions
-
-# GoPro HERO 4
+image_x, image_y = get_image_dimensions(cam_resolution,aspect_ratio) # Get the image dimensions
 
 # Flight settings
-wind = (0,math.radians(45))     # Wind settings as polar coords (Magnitude, direction in radians)
+wind = (5,math.radians(90))     # Wind settings as polar coords (Magnitude, direction in radians)
 ground_sample_distance = 0.02   # The ground sample distance in metres per pixel
 altitude =  None                # The altitude of the UAV above the ground in metres
 
 # Create random terrain using noise
 # Arbitrary values for creating random terrain
-height = 750        # 750 metres
-width = 750         # 750 metres
-freq = 2            # Hz
-multiplier = 10     # Multiplier to increase variation in elevation
+height = 1000        # 750 metres
+width = 1200         # 750 metres
+freq = 3            # Hz
+multiplier = 15     # Multiplier to increase variation in elevation
 
 gen = OpenSimplex(seed=random.randint(0,100))           # Obtain random noise seed
 terrain = create_terrain(height,width,freq,multiplier)  # Generate random terrain
@@ -137,18 +135,23 @@ min_pass_length = 5             # Minimum pass length in metres
 
 # Test cases
 # Create a polygon to represent the area to be surveyed
-polygon = [[100,100],[100,650],[650,650],[750,350],[650,100]]   # Standard shape
 
-#polygon = [[100,200],[200,300],[300,300],[400,200],[300,100],[200,100]] # Hexagon
+#polygon = [[100,100],[100,700],[700,700],[700,100]]                # Simple 600 x 600 test
 
-#polygon = [[100,100],[100,650],[650,650],[750,350],[650,100]]
+#polygon = [[100,100],[100,650],[650,650],[750,350],[650,100]]      # Standard shape
 
-#polygon = [[100,100],[100,650],[650,650],[750,350],[650,100]]
+polygon = [[100,100],[200,600],[600,900],[1000,900],[800,500],[1100,100]] # Non convex
+
+#polygon = [[100,100],[100,900],[1100,900],[1100,100]]               # Use with NFZ test
+
 
 # Define no fly zones
-NFZ = [[300,450],[450,450],[450,200],[300,200]]
-NFZ2 = [[200,450],[300,450],[300,350],[200,350]]
-NFZs = [NFZ,NFZ2]
+#NFZ = [[300,450],[450,450],[450,200],[300,200]]
+#NFZ2 = [[200,450],[300,450],[300,350],[200,350]]
+
+NFZ = [[400,400],[400,700],[800,700],[800,400]]
+
+NFZs = [] #[NFZ,NFZ2]
 
 # Set the start location
 start_loc = [400,730,terrain[730][400]]
@@ -195,7 +198,7 @@ fig = plt.figure(num=1,clear=True,figsize=(12,8))
 ax = fig.add_subplot(1,1,1,projection='3d')
 (x,y) = np.meshgrid(np.arange(0,width,1),np.arange(0,height,1))
 ax.plot_surface(x, y, terrain,cmap='terrain',zorder=5)
-ax.set(title=f'Terrain Generated\nWind angle: {round(math.degrees(wind[1]),2)} degs',xlabel='x', ylabel='y', zlabel='z = Height (m)')
+ax.set(title=f'Flight path created\nWind angle: {round(math.degrees(wind[1]),2)} degs',xlabel='x', ylabel='y', zlabel='z = Height (m)')
 #ax.set_zlim(0,150)
 
 ax.set_aspect(aspect='auto')
@@ -203,11 +206,13 @@ fig.tight_layout()
 
 # Draw the polygon on the figure
 polygon = np.array(polygon)
+polygon = np.insert(polygon,0,polygon[len(polygon)-1],axis=0)
 plt.plot(polygon[:,0],polygon[:,1],0,'-bo',zorder=15)
 
 # Draw the NFZs on the figure
 for NFZ in NFZs:    
     NFZ_points = np.array(NFZ)
+    NFZ_points = np.insert(NFZ_points,0,NFZ_points[len(NFZ_points)-1],axis=0)
     plt.plot(NFZ_points[:,0],NFZ_points[:,1],0,'-ro',zorder=15)
 
 for image_pass in image_passes:
@@ -225,25 +230,35 @@ for image_pass in image_passes:
 
 # Use TSP to find shortest route
 shortest_path = TSP(image_passes,wind[1],min_turn,uav_mass,NFZs,NFZ_edges,max_incline_grad,glide_slope,
-                    start_loc,populationSize=50,generations=2000,mutationRate=0.03)
+                    start_loc,populationSize=30,generations=2000,mutationRate=0.03)
 
 end_time = time.clock() - start_time    # Calculate time taken to create passes and findest shortest route
 
+print("\nFlight path created successfully!\nOutput:\n")
+print(shortest_path)
+
 # Print flight stats
-print(f"Total time to create passes: {round(time_to_create_passes/60,2)}mins")
-print(f"Total time to solve the TSP: {round((end_time-time_to_create_passes)/60,2)}mins")
-print(f"Total time to complete: {round(end_time/60,2)}mins")
-print(f"Total length of route: {round(shortest_path.getLength(),2)}m")
+print("\nFlight path metrics:")
+print(f"Total time to create passes: {round(time_to_create_passes/60,2)} mins")
+print(f"Total time to solve the TSP: {round((end_time-time_to_create_passes)/60,2)} mins")
+print(f"Total time to complete: {round(end_time/60,2)} mins")
+print(f"Total length of route: {round(shortest_path.getLength(),2) }m")
 print(f"Total energy of route: {round(shortest_path.getEnergy(),2)}")
+print(f"Number of terraces: {len(shortest_path)-1}")
+
 
 time_of_flight = shortest_path.getLength()/uav_speed
-print(f"Estimated time of flight: {round(time_of_flight/60,2)}mins")
-current_used = max_current_draw*time_of_flight/3600
-print(f"Estimated Current draw (Worst case): {round(current_used,2)}A")
-if current_used > battery_capacity*10**-3:
-    print("Current battery capacity will not suffice")
-else:
-    print("Current battery capacity will suffice")
+print(f"Estimated time of flight: {round(time_of_flight/60,2)} mins at constant velocity of "
+    f"{round(speed_required,2)} m/s resulting in a forward velocity of {uav_speed} m/s")
+
+# Uncomment for simple battery calculations for worst case
+
+#current_used = max_current_draw*time_of_flight/3600
+#print(f"Estimated Current draw (Worst case): {round(current_used,2)}A (Current draw of {max_current_draw}A)")
+#if current_used > battery_capacity*10**-3:
+#    print(f"Current battery capacity of {battery_capacity}mAh will not suffice")
+#else:
+#    print(f"Current battery capacity {battery_capacity}mAh of will suffice")
 
 spirals =  shortest_path.get_spirals()
 dpaths = shortest_path.get_DPaths()  # Get the Dubins paths that make up the shortest route
