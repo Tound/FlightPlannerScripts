@@ -1,0 +1,5 @@
+matplotlib
+opensimplex
+scipy
+numpy
+shapely
