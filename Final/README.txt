@@ -1,6 +1,6 @@
 -- FlightPlanner Setup and instructions for use --
 Created by Thomas Pound
-Last updated 2/5/21
+Last updated 19/5/21
 
 This software created by Thomas Pound is available for reuse and modification.
 The software is designed to create viable and optimal flight routes for aerial photogrammetry 
@@ -9,6 +9,8 @@ The software is cross-platform but some issues may appear on various versions of
 
 This folder includes the backend python scripts that can be used with a GUI to create flight paths for
 randomly generated terrain.
+The scripts also work without a GUI and flight paths can be found for randomly generated terrain.
+A 3D view of the flight path is produced as the output
 
 -- Prerequisites --
 Python version must be 3+
@@ -18,7 +20,7 @@ The following scripts must be in the same directory:
 	efficient_flight_path.py
 	create_passes.py
 	dubins_3D.py
-	Passes_TSP.py
+	passes_TSP.py
 	Image_Classes.py
 	camera_calculations.py
 	create_spirals.py
@@ -38,5 +40,11 @@ The file can be edited for to input various values for testing
 The command:
 
 	python3 efficient_flight_path.py
+		or
+	python efficient_flight_path.py
 
-can be used to run the file
+	depending on how your Python is installed on your machine,
+
+can be used to run the scripts.
+
+efficient_flight_path.py can be edited to set the desired variables to create desired flight paths.

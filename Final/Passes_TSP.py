@@ -1,10 +1,8 @@
-# Modified TSP
-
 #!/usr/bin/env python
 """
 Modified TSP for photogrammety shortest route finding
 Based on TurboFart GitHub https://gist.github.com/turbofart/3428880#file-tsp-py
-Last updated 30/4/21
+Last updated 19/5/21
 """
 
 import math
@@ -12,10 +10,8 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from dubins_3D import *
-from create_passes_V3 import *
-from Image_Classes_V3 import *
-
-import time
+from create_passes import *
+from Image_Classes import *
 
 MAX_TAX = 1*10**12  # Maximum tax added to routes that have sections that are considered illegal or unwanted
 
@@ -58,22 +54,22 @@ class RouteManager:
         self.glide_slope = glide_slope
         self.start_loc = start_loc
 
-
 class Route:
     """
     Route class represents an entire route that links all image passes
     """
-    dubins_paths = []   # Stores all dubins path objects
-    spirals = []
+    dubins_paths = []   # Contains all dubins path objects required for the route
+    spirals = []        # Contains all spiral objects required for the route
     def __init__(self,routemanager,route=None):
         self.routemanager = routemanager
         self.route = []
         self.fitness = 0.0
         self.energy = 0
         self.length = 0
-        if route is not None:
+        if route is not None:   # If a route has been passed in
             self.route = route
         else:
+            # Initialise an empty route
             for i in range(0,self.routemanager.numberOfPasses()):
                 self.route.append([None,None])
 
@@ -87,23 +83,28 @@ class Route:
         self.route[index] = value
 
     def __repr__(self):
-        start_loc,pass_config = self.getImagePass(0)
+        # Print the output flight route data
+        start_loc,pass_config = self.getImagePass(0)    # Get the start location
+        # Print the start location
         gene_string = f"Start location: {[round(coord,2) for coord in start_loc.getStart(pass_config)[:2]]}, "\
                             f"Altitude: {round(start_loc.altitude,2)}m\n"
+        
+        # Cycle through all passes and print the details
         for i in range(1, self.routeSize()):
             image_pass,pass_config = self.getImagePass(i)
             gene_string += f"{i}. Start: {[round(coord,2) for coord in image_pass.getStart(pass_config)[:2]]}, "\
                                     f"End: {[round(coord,2) for coord in image_pass.getEnd(pass_config)[:2]]}, "\
                                     f"Altitude: {round(image_pass.altitude,2)} m\n"
-        return gene_string[:len(gene_string)-2]
+        return gene_string[:len(gene_string)-2] # Remove the newline and return the string
 
     def getRoute(self):
         return self.route
 
+    # Generate an image location with a random config
     def generateIndividual(self):
         for index in range(0,self.routemanager.numberOfPasses()):
             image_pass = self.routemanager.getImagePass(index)
-
+            # Randomly selected the config for the image pass
             self.setImagePass(index,image_pass,random.choice([True,False]))
 
     def getImagePass(self,index):
@@ -130,9 +131,10 @@ class Route:
             self.spirals = []
             route_energy = 0    # Initialise energy as 0
             for index in range(0,self.routeSize()): # Cycle through every pass on route
-                current_pass,current_pass_config = self.getImagePass(index) # Store the current pass and its configuration (forwards or backwards)
+                # Store the current pass and its configuration (forwards or backwards)
+                current_pass,current_pass_config = self.getImagePass(index)
                 destination_pass = None
-                route_energy += current_pass.getLength()#current_pass.getEnergy(current_pass_config,self.routemanager)   # Add energy required to traverse path
+                route_energy += current_pass.getLength()   # Add energy required to traverse path
 
                 if index+1 < self.routeSize():                                              # If not at the end of the route
                     destination_pass,destination_pass_config = self.getImagePass(index+1)   # Store next pass as destination pass
@@ -144,32 +146,33 @@ class Route:
 
                 if dpath is not None:
                     self.dubins_paths.append(dpath) # Add the shortest dubins path between the passes
+
                 if spiral is not None:
-                    self.spirals.append(spiral)
+                    self.spirals.append(spiral)     # If a spiral is required, store it
+
                 route_energy += energy              # Add calculated energy to link passes
             self.energy = route_energy              # Store calculated energy for this route
         return self.energy
     
     def getLength(self):
-        """
-        Add so that the entire route length can be calculated
-        """
+        # Calculate the entire route length
         length = 0
+        # Add the length of all the image passes
         for image_pass in self.route:
             length += image_pass[0].getLength()
+            
+        # Sum the length of all Dubins paths on the route
         for dubins_path in self.dubins_paths:
             length += dubins_path.get_length()
         self.length = length
         return self.length
 
-
     def get_DPaths(self):
-        """
-        Added by Thomas Pound
-        Get the calculated shortest dubins paths to link the passes
-        """
+        # Get the required Dubins paths for the route
         return self.dubins_paths
+
     def get_spirals(self):
+        # Get the required spiral paths for the route
         return self.spirals
 
     def routeSize(self):
@@ -182,18 +185,13 @@ class Route:
         else:
             return False 
 
-
     def orderPasses(self,index):
-        """
-        Added by Thomas Pound
-        This function orders the passes so that the start location is first
-        """
+        # Shift the order of the passes to place a specified index first in the array (index of start location)
         self.route = np.roll(self.route,-index,axis=0)
-
 
 class Population:
     """
-    Population class saves all routes in the population
+    Population class saves all route variations
     """
     def __init__(self,routemanager,populationSize,initialise):
         self.routes = []
@@ -201,6 +199,7 @@ class Population:
             self.routes.append(None)
 
         if initialise:
+            # Generate a route
             for i in range(0,populationSize):
                 newRoute = Route(routemanager)
                 newRoute.generateIndividual()
@@ -213,6 +212,7 @@ class Population:
         return self.routes[index]
 
     def getFittest(self):
+        # Get the route with the highest fitness value
         fittest = self.routes[0]
         for i in range(0, self.populationSize()):
             if fittest.getFitness() <= self.getRoute(i).getFitness():
@@ -222,10 +222,10 @@ class Population:
     def populationSize(self):
         return len(self.routes)
 
-
 class GA:
     """
     Genetic algorithm class
+    Contains all functions to alter the population
     """
     def __init__(self,routemanager,mutationRate, tournamentSize):
         self.routemanager = routemanager
@@ -234,65 +234,94 @@ class GA:
         self.elitism = True
 
     def evolvePopulation(self, population):
+        # Create a new population
         newPopulation = Population(self.routemanager, population.populationSize(),False)
         elitismOffset = 0
         if self.elitism:
             newPopulation.saveRoute(0,population.getFittest())
             elitismOffset = 1
 
+        # Crossover selection
         for i in range(elitismOffset, newPopulation.populationSize()):
-            parent1 = self.tournamentSelection(population)
-            parent2 = self.tournamentSelection(population)
-            child = self.crossover(parent1,parent2)
-            newPopulation.saveRoute(i,child)
+            parent1 = self.tournamentSelection(population)      # Obtain first parent
+            parent2 = self.tournamentSelection(population)      # Obtain second parent
+            child = self.crossover(parent1,parent2)             # Obtain offspring from chosen parents
+            newPopulation.saveRoute(i,child)                    # Save route from crossover
 
+        # Mutate each route in the population
         for i in range(elitismOffset, newPopulation.populationSize()):
             self.mutate(newPopulation.getRoute(i))
 
         return newPopulation
 
     def crossover(self,parent1,parent2):
+        """
+        Crossover creates offspring from random genes of the parents
+        Parameters:
+            parent1 - A route
+            parent2 - A route
+        Returns:
+            child - offspring route
+        """
         child = Route(self.routemanager)
 
+        # Select random amount of genes from the first parent
         startPos = int(random.random() * parent1.routeSize())
         endPos = int(random.random() * parent1.routeSize())
+
+        # Create the offspring
 
         for i in range(0,child.routeSize()):
             p1_pass,p1_config = parent1.getImagePass(i)
             if startPos < endPos and i > startPos and i < endPos:
-                child.setImagePass(i,p1_pass,p1_config)
+                child.setImagePass(i,p1_pass,p1_config)         # Store a gene from parent1
             elif startPos > endPos:
                 if not (i< startPos and i > endPos):
-                    child.setImagePass(i,p1_pass,p1_config)
+                    child.setImagePass(i,p1_pass,p1_config)     # Store a gene from parent1
         
+        # Fill offspring with genes from parent2
         for i in range(0,parent2.routeSize()):
             p2_pass,p2_config = parent2.getImagePass(i)
             if not child.containsPass(p2_pass):
-                for j in range(0,child.routeSize()):
+                for j in range(0,child.routeSize()):            # Cycle through all genes of offspiring to find empyy location
                     c_pass,c_config = child.getImagePass(j)
                     if c_pass == None:
-                        child.setImagePass(j,p2_pass,p2_config)
+                        child.setImagePass(j,p2_pass,p2_config) # Store a gene from parent2
                         break
 
         return child
 
     def mutate(self,route):
+        """
+        Mutate the route
+        Parameters:
+            route - Route to mutate
+        """
         for routePos1 in range(0,route.routeSize()):
             if random.random() < self.mutationRate:
-                routePos2 = int(route.routeSize()*random.random())
+                routePos2 = int(route.routeSize()*random.random())      # Randomly select the position of a gene to alter
 
+                # Get the genes at the chosen positions
                 image_pass1,p1_config = route.getImagePass(routePos1)
                 image_pass2,p2_config = route.getImagePass(routePos2)
 
+                # Save genes and randomly select the config
                 route.setImagePass(routePos2,image_pass1,random.choice([True,False]))
                 route.setImagePass(routePos1,image_pass2,random.choice([True,False]))
                 
     def tournamentSelection(self, population):
-        tournament = Population(self.routemanager, self.tournamentSize, False)
+        """
+        This function returns the fittest routes from a random tournament
+        Parameters:
+            population - The population of routes
+        Returns:
+            fittest - The fittest route from the tournament
+        """
+        tournament = Population(self.routemanager, self.tournamentSize, False)  # Create a population for the tournament
         for i in range(0,self.tournamentSize):
-            randomId = int(random.random() * population.populationSize())
-            tournament.saveRoute(i,population.getRoute(randomId))
-        fittest = tournament.getFittest()
+            randomId = int(random.random() * population.populationSize())       # Randomly select the id of the route
+            tournament.saveRoute(i,population.getRoute(randomId))               # Save the random route
+        fittest = tournament.getFittest()               # Obtain the fittest route of the tournament
         return fittest
 
 def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,NFZ_edges,max_grad,glide_slope,
@@ -333,55 +362,13 @@ def TSP(image_passes,wind_angle,min_turn,uav_mass,NFZs,NFZ_edges,max_grad,glide_
     ga = GA(routemanager,mutationRate,tournamentSize)
     pop = ga.evolvePopulation(pop)
 
-    for i in range(0, generations): # Evolve for the set number of generations
+    for i in range(0, generations):         # Evolve for the set number of generations
         pop = ga.evolvePopulation(pop)
         print(f"{100 * i/generations} %")   # Print the percentage of completion
 
-    bestRoute = pop.getFittest()    # Get best route
+    bestRoute = pop.getFittest()            # Get best route
 
     index = np.where(np.array(bestRoute)[:,0] == start_pass)[0][0]  # Find the start location in the route
     bestRoute.orderPasses(index)    # Order the passes so that the start location is first in the list
 
     return bestRoute
-
-
-if __name__ == '__main__':
-    """
-    Test case with 4 define pass locations
-    """
-    image_locs1 = [Image_Location(10,10,120),Image_Location(20,20,120),Image_Location(30,30,120),Image_Location(40,40,120)]
-    image_locs2 = [Image_Location(100,100,100),Image_Location(200,200,100),Image_Location(300,300,100),Image_Location(400,400,100)]
-    image_locs3 = [Image_Location(150,250,90),Image_Location(170,270,90),Image_Location(190,290,90),Image_Location(210,310,90)]
-    image_locs4 = [Image_Location(205,205,10),Image_Location(210,205,10),Image_Location(220,205,10),Image_Location(230,205,10)]
-
-    wind_angle = math.radians(-45)
-    image_passes = [Image_Pass(image_locs1,wind_angle),
-                    Image_Pass(image_locs2,wind_angle),
-                    Image_Pass(image_locs3,wind_angle),
-                    Image_Pass(image_locs4,wind_angle)]
-
-    shortest_path = TSP(image_passes,wind_angle,20,20,None,20,(20,20,20),population_size=100,generations=100)
-    print(shortest_path)
-    dpaths = shortest_path.getDPaths()
-
-    stepSize = 1
-
-    dubinsX = np.array([])
-    dubinsY = np.array([])
-    dubinsZ = np.array([])
-    for dpath in dpaths:
-        points = dubins_path_sample_many(dpath,stepSize)
-        for point in points:
-            dubinsX = np.append(dubinsX,point[0])
-            dubinsY = np.append(dubinsY,point[1])
-            dubinsZ = np.append(dubinsZ,point[2])
-
-
-    fig = plt.figure(num=1,clear=True,figsize=(12,8))
-    ax = fig.add_subplot(1,1,1,projection='3d')
-    ax.set_aspect(aspect='auto')
-    fig.tight_layout()
-
-    plt.plot(dubinsX,dubinsY,dubinsZ,'yo',zorder=15,markersize = 1)
-
-    plt.show()
