@@ -2,7 +2,7 @@
 These classes are to be used with the Efficient flight planning software
 Created by Thomas Pound for the MEng Project
 The classes include an Image_Pass and Image_Location
-Last updated 30/4/21
+Last updated 19/5/21
 """
 
 import math
@@ -44,7 +44,7 @@ class Image_Pass:
 
     def getLength(self):
         """
-        Get length of pass for a known configuration
+        Get length of pass in 3D for a known configuration
         """
         if self.length is None:
             length = 0
@@ -74,8 +74,9 @@ class Image_Pass:
         """
         if config:
             if self.heading[0] is None:
-                if self.start == self.end :
+                if self.start == self.end:
                     heading = self.wind_angle - math.pi/2
+                    # Fit heading within 0 to 2pi
                     if heading >= 2*math.pi:
                         heading -= 2*math.pi
                     elif heading <= -2*math.pi:
@@ -117,6 +118,7 @@ class Image_Pass:
         Returns:
             energy              - The respective energy to travel to the next pass
             dpath               - The dubins path required to link the two passes
+            spiral              - The spiral path required to raise the altitude of the UAV
         """
         d_path = None    
         spiral = None
@@ -124,6 +126,7 @@ class Image_Pass:
 
         end = self.getEnd(config)
         start = other_pass.getStart(other_pass_config)
+        # Create start and end point for Dubins path
         q0 = (end[0],end[1],end[2],self.getHeading(config))
         q1 = (start[0],start[1],start[2],other_pass.getHeading(other_pass_config))
 
@@ -133,32 +136,32 @@ class Image_Pass:
         if dz > 1:
             # Check if too steep
             incline_angle = math.atan2(dz, math.sqrt(dx*dx + dy*dy)) 
-            if incline_angle > routemanager.max_grad:
+            if incline_angle > routemanager.max_grad:   # If too steep create a spiral
                 spiral = create_spiral(q0,dz,routemanager.min_turn,routemanager.max_grad)
-                q0 = spiral.end
-            alt_energy = routemanager.uav_mass*G* dz
+                q0 = spiral.end     # Update the end point of the spiral to the start of the Dubins Path
+            alt_energy = routemanager.uav_mass*G* dz    # Calculate the GPE
         else:
             alt_energy = 1 # If the next point is below the current
 
-        d_path = dubins_shortest_path(q0,q1,routemanager.min_turn)
+        d_path = dubins_shortest_path(q0,q1,routemanager.min_turn)  # Get the shortest Dubins path
 
-        # Check if goes through NFZ
+        # Check if the path goes through an NFZ
         # Create line
         edge = sg.LineString([(start[0],start[1]),(end[0],end[1])])
         for NFZ_edge in routemanager.NFZ_edges:
             intersection = NFZ_edge.getEdge().intersection(edge)
-            if not intersection.is_empty:
-                energy = MAX_TAX
+            if not intersection.is_empty:       # If the path intersects with an NFZ
+                energy = MAX_TAX                # Add the tax to the energy
                 return energy,d_path,spiral
 
         if d_path.get_length() == 0:
             d_path = None
             energy = 0
         else:
-            energy += d_path.get_length()
+            energy += d_path.get_length()   # Add the energy of the Dubins path
 
         if spiral != None:
-            energy += spiral.get_length()
+            energy += spiral.get_length()   # Add the energy of the spiral
 
         energy = energy*alt_energy
 

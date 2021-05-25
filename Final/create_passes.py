@@ -1,7 +1,7 @@
 """
-Creates passes and terraces for a photogrammtry flight path
+Creates passes and terraces for a photogrammetry flight path
 Created by Thomas Pound
-Last updated 30/4/21
+Last updated 19/5/21
 """
 import math
 import numpy as np
@@ -9,10 +9,8 @@ import shapely.geometry as sg
 from shapely import affinity
 from dubins_3D import *
 from scipy.interpolate import griddata
-from Image_Classes_V3 import *
+from Image_Classes import *
 from camera_calculations import *
-
-import matplotlib.pyplot as plt
 
 G = 9.81        # Acceleration due to gravity
 
@@ -69,7 +67,7 @@ def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start_v,wind_angle):
         altitude = z + uav_altitude                         # Store the altitude above sea level
 
         altitude_profile.append(altitude)   # Add the altitude value to the altitude profile
-        v +=1   # Move up to the next coordinate on the pass
+        v +=1                               # Move up to the next coordinate on the pass
     return altitude_profile
 
 def getDistance(point1,point2):
@@ -202,27 +200,30 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
 
                 else:
                     # Add to the terrace
-                    if altitude_profile[index] > current_min_altitude and  altitude_profile[index] < current_max_altitude:
+                    # If the altitude value is within limits
+                    if altitude_profile[index] > current_min_altitude and altitude_profile[index] < current_max_altitude:
                         coords = convertCoords([[u,v+index]],wind_angle,'xy')
                         x = coords[0][0]
                         y = coords[0][1]
                         current_terrace.append([x,y,current_altitude])
+                    # If the next altitude value is within limits
                     elif altitude_profile[index+1] > current_min_altitude and altitude_profile[index+1] < current_max_altitude:
                         coords = convertCoords([[u,v+index]],wind_angle,'xy')
                         x = coords[0][0]
                         y = coords[0][1]
-                        current_terrace.append([x,y,current_altitude])
+                        current_terrace.append([x,y,current_altitude])  # Add current point
                         index += 1
                         coords = convertCoords([[u,v+index]],wind_angle,'xy')
                         x = coords[0][0]
                         y = coords[0][1]
-                        current_terrace.append([x,y,current_altitude])
+                        current_terrace.append([x,y,current_altitude])  # Add next point
+                    # If the following altitude value is within limits
                     elif altitude_profile[index+2] > current_min_altitude and altitude_profile[index+2] < current_max_altitude:
                         for val in range(0,2):
                             coords = convertCoords([[u,v+index+val]],wind_angle,'xy')
                             x = coords[0][0]
                             y = coords[0][1]
-                            current_terrace.append([x,y,current_altitude])
+                            current_terrace.append([x,y,current_altitude])  # Add current, next and following point to the terrace
                             index += 1
                         index -= 1
                     else:
@@ -231,8 +232,8 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                             terrace_start = current_terrace[0]
                             terrace_end = current_terrace[len(current_terrace)-1]
                             image_passes.append(Image_Pass(terrace_start,terrace_end,current_altitude,wind_angle))
-                            current_terrace = []
-                            current_altitude = 0
+                            current_terrace = []    # Initialise the array of terrace points
+                            current_altitude = 0    # Initialise the terrace altitude to 0
                         else:
                             # Requires more image locations
                             print("Not long enough")
@@ -240,8 +241,6 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                             x = coords[0][0]
                             y = coords[0][1]
                             current_terrace.append([x,y,current_altitude])  # Add point to terrace
-                            #current_max_altitude += max_alt_diff/2
-                            #current_min_altitude -+ max_alt_diff/2
                 index += 1
     else:
         pass
@@ -282,12 +281,10 @@ def coverage_check(heading_angle,start_u,pass_shift,coverage_width,coverage_heig
     # Get intersect of footprints
     intersection_points = rotated_footprint1.intersection(rotated_footprint2)
 
-    # If coverage is complete
     # Get vertices
-    # Sutherland-Hodgman for zero overlap
     u,v = intersection_points.exterior.xy
-    sorted_points = sorted(u)
-    if sorted_points[0] > start_u:
+    sorted_points = sorted(u)       # Sort all vertices from left to right
+    if sorted_points[0] > start_u:  # If the left most point is to the right side of the ROI boundary
         complete_coverage = False
 
     return complete_coverage
@@ -343,9 +340,11 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
     # If GSD is available
     if config.altitude is None and config.ground_sample_distance is not None:
 
-        coverage_width, coverage_height = camera.get_coverage_size_gsd(config.ground_sample_distance)   # In metres
+        # Get the coverage dimensions from the GSD
+        coverage_width, coverage_height = camera.get_coverage_size_gsd(config.ground_sample_distance)
         uav_altitude = camera.get_altitude(coverage_width)
 
+        # Get the max and min uav altitudes
         max_uav_alt = camera.get_altitude_from_gsd(config.ground_sample_distance + config.ground_sample_distance/10)
         min_uav_alt = camera.get_altitude_from_gsd(config.ground_sample_distance - config.ground_sample_distance/10)
 
@@ -353,35 +352,41 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
 
     # If altitude is available
     elif config.altitude is not None and config.ground_sample_distance is None:
-        coverage_width, coverage_height = camera.get_coverage_size_alt(config.altitude) # In meters
+
+        # Get the coverage dimensions from the altitude
+        coverage_width, coverage_height = camera.get_coverage_size_alt(config.altitude)
 
         uav_altitude = config.altitude
 
         ground_sample_distance = camera.get_gsd_from_alt(uav_altitude)    # Get GSD
         config.ground_sample_distance = ground_sample_distance
         
+        # Get the max and min uav altitudes
         max_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance + config.ground_sample_distance/10)
         min_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance - config.ground_sample_distance/10)
 
     # If both have been initialised
     elif config.altitude is not None and config.ground_sample_distance is not None:
-        coverage_width, coverage_height = camera.get_coverage_size_alt(config.altitude)        # In meters
+        
+        # Get the coverage dimensions from the altitude
+        coverage_width, coverage_height = camera.get_coverage_size_alt(config.altitude)
 
         # Look for conflicts
-        uav_altitude = config.altitude                                                  # In meters
+        uav_altitude = config.altitude
         ground_sample_distance = camera.get_gsd_from_alt(uav_altitude)
-        if ground_sample_distance != config.ground_sample_distance:
+        if ground_sample_distance != config.ground_sample_distance: # If the values have conflicts
             print(f"Conflict with GSD, taking altitude as true. New GSD: {ground_sample_distance}")
-            config.ground_sample_distance = ground_sample_distance  # Sd
+            config.ground_sample_distance = ground_sample_distance
             
+        # Get the max and min uav altitudes
         max_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance + config.ground_sample_distance/10)
         min_uav_alt = camera.get_altitude_from_gsd(ground_sample_distance - config.ground_sample_distance/10)
 
     else:
+        # If altitude and GSD are not available
         print("Requires atleast one value of altitude or gsd")
 
-
-    # Calculate the distance between photos using the side overlap
+    # Calculate the distance between adjacent photos using the side overlap
     distance_between_photos_width = coverage_width - coverage_width*config.side_overlap
 
     # Check if UAV is likely to enter an NFZ
@@ -443,7 +448,7 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
         # Find points where passes intersect with ROI
 
         intersection_points = []    # Points of intersection for each pass
-        pass_edge = sg.LineString([(u,min_height-1),(u,max_height+1)])
+        pass_edge = sg.LineString([(u,min_height-1),(u,max_height+1)]) # Create oversized pass to check for intersections
 
         # Fixed bug with edge crossing, tried removing duplicates
         intersection = polygon_path.intersection(pass_edge)
@@ -468,7 +473,6 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
             elif type(intersection) == sg.LineString:   # If the intersection is multiple coordinates, cycle through and add all
                 for point in intersection.coords:
                     intersection_points.append([point[0],point[1]])
-
 
         points_on_pass = sorted(intersection_points,key=lambda point:point[1])   # List vertically
         subpasses = len(points_on_pass)/2   # Calculate the number of subpasses

@@ -2,7 +2,7 @@
 Camera class and calculations
 Calculations used to calculate various factors about the flight properties
 Created by Thomas Pound
-Last updated 30/4/21
+Last updated 19/5/21
 """
 import math
 
@@ -36,12 +36,13 @@ class Camera:
 
     def get_image_dimensions(self):
         """
-        Obtain the size of the camera footprint in pixels
+        Obtain the size of the camera image in pixels
         """
         # Split the aspect ratio into individual ratios
         width_ratio = self.aspect_ratio[0]
         height_ratio = self.aspect_ratio[1]
         ratio = width_ratio/height_ratio
+        # Calculate the image dimensions
         image_width = math.sqrt(self.resolution*10**6 * ratio)
         image_height = image_width/ratio
         return image_width, image_height
