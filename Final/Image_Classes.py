@@ -1,8 +1,7 @@
 """
-These classes are to be used with the Efficient flight planning software
+This class and functions are to be used with the Efficient flight planning software
 Created by Thomas Pound for the MEng Project
-The classes include an Image_Pass and Image_Location
-Last updated 19/5/21
+Last updated 25/5/21
 """
 
 import math

@@ -2,7 +2,7 @@
 """
 Main file to be called to create an efficient flight path for a polygon
 and corresponding NFZs for a given terrain
-Last updated 30/4/21
+Last updated 25/5/21
 """
 import math
 import numpy as np
@@ -125,7 +125,6 @@ min_pass_length = 5             # Minimum pass length in metres
 # Create a polygon vertices to represent the area to be surveyed
 
 polygon = [[100,100],[200,600],[600,900],[1000,900],[800,500],[1100,100]] # Non convex shape
-
 
 # Define no fly zones vertices
 NFZ = [[300,450],[450,450],[450,200],[300,200]]

@@ -2,7 +2,7 @@
 Script used to create and sample spirals for the creation of
 efficient flight paths.
 Created by Thomas Pound
-Last updated 30/4/21
+Last updated 25/5/21
 """
 
 import math
@@ -133,7 +133,6 @@ if '__main__' == __name__:
     ax = fig.add_subplot(1,1,1,projection='3d')
     ax.set(title=f"Spiral generated\nRadius: {min_turn_rad} m, Pitch angle: {round(math.degrees(spiral.pitch_angle),2)} degs, "
                     f"Spiral length: {round(spiral.length_3d,2)} m",xlabel='x', ylabel='y', zlabel='z = Height (m)')
-    #ax.set_zlim(0,150)
 
     ax.set_aspect(aspect='auto')
     fig.tight_layout()

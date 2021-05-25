@@ -7,7 +7,7 @@ https://github.com/AndrewWalker/Dubins-Curves
 
 Adapted by Thomas Pound into python for the project Autopilot for Aerial Photography
 Created 3/2/21
-Last updated 19/5/21
+Last updated 25/5/21
 """
 
 import math
@@ -144,17 +144,17 @@ def dubins_path_sample(path,stepSize,q,alt):
     q1 = dubins_segment(p1,qi,segments[0],alt)
     q2 = dubins_segment(p2,q1,segments[1],alt)
 
-    if tprime < p1:         # If time is within the distance of the first section
+    if tprime < p1:         # If time is within the distance of the first segment
         q = dubins_segment(tprime,qi,segments[0],alt)
-    elif tprime < (p1+p2):  # If time is within the distance of the second section
+    elif tprime < (p1+p2):  # If time is within the distance of the second segment
         q = dubins_segment(tprime-p1,q1,segments[1],alt)
-    else:                   # Third section is left
+    else:                   # Third segment is left
         q = dubins_segment(tprime-p1-p2,q2,segments[2],alt)
 
     q = (q[0]*path.rho+path.qi[0],
         q[1]*path.rho + path.qi[1],
-        q[2]*path.rho + path.qi[2],     # Might remove the rho
-        mod2pi(q[3]))                   # Cap theta to within 0 and 2pi
+        q[2]*path.rho + path.qi[2],
+        mod2pi(q[3]))   # Cap theta to within 0 and 2pi
 
     return q
 

@@ -1,7 +1,7 @@
 """
 Creates passes and terraces for a photogrammetry flight path
 Created by Thomas Pound
-Last updated 19/5/21
+Last updated 25/5/21
 """
 import math
 import numpy as np
@@ -123,7 +123,6 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
     Returns:
         image_passes - Updated list of all image passes
     """
-    # Create terraces from pass
 
     lookahead = 3                                       # Initialise how many values to look ahead in altitude profile
     current_terrace = []                                # Initialise current terrace points as empty
@@ -154,9 +153,10 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
             # Calculate terraces
             index = 0
 
-            current_altitude = -1        # Store the current altitude of the terrace
-            current_min_altitude = -1    # Store the current minimum altitude of the terrace
-            current_max_altitude = -1    # Store the current maximum altitude of the terrace
+            # Initialise terrace parameters
+            current_altitude = -1
+            current_min_altitude = -1
+            current_max_altitude = -1 
 
             while index < len(altitude_profile):
 
@@ -181,7 +181,6 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                     # Look ahead to find gradient
                     grad = altitude_profile[index+1] - altitude_profile[index]
                     grad += altitude_profile[index+2] - altitude_profile[index]
-                    #grad += altitude_profile[index+3] - altitude_profile[index]
                     grad = grad/2           # Take the average of the gradient
                     coords = convertCoords([[u,v+index]],wind_angle,'xy')
                     x = coords[0][0]
@@ -422,7 +421,7 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
     if config.wind[0] > 0:
         if not coverage_check(config.uav.heading_angle,start_u,pass_shift,coverage_width,coverage_height):   # Check if coverage is still complete
             print("Coverage is no longer complete, adding another pass")
-            # Check if another one is required
+            # Check if another pass is required
             # If another pass is required, add another then recenter the passes
             number_of_passes += 1
             remainder = length_of_area - (number_of_passes * coverage_width - (number_of_passes-1)*config.side_overlap*coverage_width) 

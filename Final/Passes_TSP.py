@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Modified TSP for photogrammety shortest route finding
-Based on TurboFart GitHub https://gist.github.com/turbofart/3428880#file-tsp-py
+Based on and altered from TurboFart GitHub https://gist.github.com/turbofart/3428880#file-tsp-py
 Last updated 19/5/21
 """
 
