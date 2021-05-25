@@ -132,7 +132,7 @@ if '__main__' == __name__:
     fig = plt.figure(num=1,clear=True,figsize=(12,8))
     ax = fig.add_subplot(1,1,1,projection='3d')
     ax.set(title=f"Spiral generated\nRadius: {min_turn_rad} m, Pitch angle: {round(math.degrees(spiral.pitch_angle),2)} degs, "
-                    f"Spiral length: {round(spiral.length_3d,2)} m",xlabel='x', ylabel='y', zlabel='z = Height (m)')
+            +f"Spiral length: {round(spiral.length_3d,2)} m",xlabel='x', ylabel='y', zlabel='z = Height (m)')
     #ax.set_zlim(0,150)
 
     ax.set_aspect(aspect='auto')
