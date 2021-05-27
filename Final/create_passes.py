@@ -1,7 +1,7 @@
 """
 Creates passes and terraces for a photogrammetry flight path
 Created by Thomas Pound
-Last updated 25/5/21
+Last updated 27/5/21
 """
 import math
 import numpy as np
@@ -245,7 +245,7 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
         pass
     return image_passes
 
-def coverage_check(heading_angle,start_u,pass_shift,coverage_width,coverage_height):
+def coverageCheck(heading_angle,start_u,pass_shift,coverage_width,coverage_height):
     """
     Ensures that the heading angle does not affect complete coverage of the area
     Params:
@@ -419,7 +419,7 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
 
     # Check if wind is present, if so the heading angle will shift and so will the coverage
     if config.wind[0] > 0:
-        if not coverage_check(config.uav.heading_angle,start_u,pass_shift,coverage_width,coverage_height):   # Check if coverage is still complete
+        if not coverageCheck(config.uav.heading_angle,start_u,pass_shift,coverage_width,coverage_height):   # Check if coverage is still complete
             print("Coverage is no longer complete, adding another pass")
             # Check if another pass is required
             # If another pass is required, add another then recenter the passes
