@@ -2,7 +2,7 @@
 """
 Modified TSP for photogrammety shortest route finding
 Based on and altered from TurboFart GitHub https://gist.github.com/turbofart/3428880#file-tsp-py
-Last updated 19/5/21
+Last updated 28/5/21
 """
 
 import math
@@ -167,11 +167,11 @@ class Route:
         self.length = length
         return self.length
 
-    def get_DPaths(self):
+    def getDPaths(self):
         # Get the required Dubins paths for the route
         return self.dubins_paths
 
-    def get_spirals(self):
+    def getSpirals(self):
         # Get the required spiral paths for the route
         return self.spirals
 

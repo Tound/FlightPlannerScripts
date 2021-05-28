@@ -1,7 +1,7 @@
 """
 Creates passes and terraces for a photogrammetry flight path
 Created by Thomas Pound
-Last updated 27/5/21
+Last updated 28/5/21
 """
 import math
 import numpy as np
@@ -37,7 +37,7 @@ class Edge:
     def __repr__(self):
         return f"([{self.x1},{self.y1}),({self.x2},{self.y2}])"
 
-def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start_v,wind_angle):
+def get_altitude_profile(pass_length,terrain,uav_altitude,u,start_v,wind_angle):
     """
     Obtain altitude data for an entire pass across generated terrain
     Params:
@@ -53,7 +53,7 @@ def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start_v,wind_angle):
     altitude_profile = []
     v = start_v
     for i in range(0,round(pass_length)):               # Loop for the length of the pass
-        coord = convertCoords([[u,v]],wind_angle,'xy')  # Convert coordinates back to xy coordinate system for the terrain
+        coord = convert_coords([[u,v]],wind_angle,'xy')  # Convert coordinates back to xy coordinate system for the terrain
         x = coord[0][0]
         y = coord[0][1]
         # Take the integer points around the desired elevation point
@@ -70,7 +70,7 @@ def getAltitudeProfile(pass_length,terrain,uav_altitude,u,start_v,wind_angle):
         v +=1                               # Move up to the next coordinate on the pass
     return altitude_profile
 
-def getDistance(point1,point2):
+def get_distance(point1,point2):
     """
     Get the distance between two points in 2D
     parameters:
@@ -83,7 +83,7 @@ def getDistance(point1,point2):
     dy = point2[1]-point1[1]
     return math.sqrt(dy*dy + dx*dx)
 
-def convertCoords(vertices,angle,coord_system):
+def convert_coords(vertices,angle,coord_system):
     """
     Performs coordinate transformatin between uv <=> xy
     Using   [u] = [ cos(theta) + sin(theta)][x]
@@ -108,7 +108,7 @@ def convertCoords(vertices,angle,coord_system):
         print("Unknown coord system - Choose either 'xy' or 'uv'")
     return new_coords
 
-def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,min_terrace_len):
+def create_terraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,min_terrace_len):
     """
     Splits pass into terraces using the altitude profile
     Params:
@@ -141,10 +141,10 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
             terrace_end = (u,v+pass_length,average_alt)
 
             # Convert the terrace coords back to xy and set the start and end points of the terrace
-            coords = convertCoords([[terrace_start[0],terrace_start[1]]],wind_angle,'xy')
+            coords = convert_coords([[terrace_start[0],terrace_start[1]]],wind_angle,'xy')
             terrace_start = (coords[0][0],coords[0][1],average_alt)
 
-            coords = convertCoords([[terrace_end[0],terrace_end[1]]],wind_angle,'xy')
+            coords = convert_coords([[terrace_end[0],terrace_end[1]]],wind_angle,'xy')
             terrace_end = (coords[0][0],coords[0][1],average_alt)
 
             # Add new image pass
@@ -168,7 +168,7 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                     
                     # Use current altitude previously calculated from the terrace
                     for val in range(0,lookahead-1):
-                        coords = convertCoords([[u,v+index+val]],wind_angle,'xy')
+                        coords = convert_coords([[u,v+index+val]],wind_angle,'xy')
                         current_terrace.append([coords[0][0],coords[0][1],current_altitude])  # Add points to terrace at the current altitude
 
                     # Add all to current pass
@@ -182,7 +182,7 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                     grad = altitude_profile[index+1] - altitude_profile[index]
                     grad += altitude_profile[index+2] - altitude_profile[index]
                     grad = grad/2           # Take the average of the gradient
-                    coords = convertCoords([[u,v+index]],wind_angle,'xy')
+                    coords = convert_coords([[u,v+index]],wind_angle,'xy')
                     x = coords[0][0]
                     y = coords[0][1]
                     if grad > 0:
@@ -201,25 +201,25 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                     # Add to the terrace
                     # If the altitude value is within limits
                     if altitude_profile[index] > current_min_altitude and altitude_profile[index] < current_max_altitude:
-                        coords = convertCoords([[u,v+index]],wind_angle,'xy')
+                        coords = convert_coords([[u,v+index]],wind_angle,'xy')
                         x = coords[0][0]
                         y = coords[0][1]
                         current_terrace.append([x,y,current_altitude])
                     # If the next altitude value is within limits
                     elif altitude_profile[index+1] > current_min_altitude and altitude_profile[index+1] < current_max_altitude:
-                        coords = convertCoords([[u,v+index]],wind_angle,'xy')
+                        coords = convert_coords([[u,v+index]],wind_angle,'xy')
                         x = coords[0][0]
                         y = coords[0][1]
                         current_terrace.append([x,y,current_altitude])  # Add current point
                         index += 1
-                        coords = convertCoords([[u,v+index]],wind_angle,'xy')
+                        coords = convert_coords([[u,v+index]],wind_angle,'xy')
                         x = coords[0][0]
                         y = coords[0][1]
                         current_terrace.append([x,y,current_altitude])  # Add next point
                     # If the following altitude value is within limits
                     elif altitude_profile[index+2] > current_min_altitude and altitude_profile[index+2] < current_max_altitude:
                         for val in range(0,2):
-                            coords = convertCoords([[u,v+index+val]],wind_angle,'xy')
+                            coords = convert_coords([[u,v+index+val]],wind_angle,'xy')
                             x = coords[0][0]
                             y = coords[0][1]
                             current_terrace.append([x,y,current_altitude])  # Add current, next and following point to the terrace
@@ -236,7 +236,7 @@ def createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_
                         else:
                             # Requires more image locations
                             print("Not long enough")
-                            coords = convertCoords([[u,v+index]],wind_angle,'xy')
+                            coords = convert_coords([[u,v+index]],wind_angle,'xy')
                             x = coords[0][0]
                             y = coords[0][1]
                             current_terrace.append([x,y,current_altitude])  # Add point to terrace
@@ -327,12 +327,12 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
 
 
     # Create new ROI coords for the updated coordinate system
-    new_area_coords = convertCoords(area,wind_angle,'uv')   # Convert xy coordinates to uv system
+    new_area_coords = convert_coords(area,wind_angle,'uv')   # Convert xy coordinates to uv system
 
     # Create new NFZ coords for the updated coordinate system
     new_NFZs = []
     for NFZ in NFZs:
-        new_NFZ_coords = convertCoords(NFZ,wind_angle,'uv') # Convert xy coordinates to uv system
+        new_NFZ_coords = convert_coords(NFZ,wind_angle,'uv') # Convert xy coordinates to uv system
         new_NFZs.append(new_NFZ_coords)
 
     # Find camera footprint size
@@ -479,7 +479,7 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
         for j in range(0,int(subpasses)):   # Split full length passes into sub passes if obstacles are found
             start = points_on_pass[j*2]
             end = points_on_pass[j*2 + 1]
-            pass_length = getDistance(start,end)-coverage_height    # Calculate the pass length and remove the height of the camera footprint
+            pass_length = get_distance(start,end)-coverage_height    # Calculate the pass length and remove the height of the camera footprint
             if pass_length <= config.min_pass_length:               # Check to see if pass is to size
                 print("Pass length is too small")                   # If pass is too small, continue
                 continue
@@ -490,9 +490,9 @@ def createPasses(area,polygon_edges,NFZs,terrain,config):
             v = start[1] + coverage_height/2  # Shift pass up by half the size of the coverage height
 
             # Get altitude data
-            altitude_profile = getAltitudeProfile(pass_length,terrain,uav_altitude,u,v,wind_angle)
+            altitude_profile = get_altitude_profile(pass_length,terrain,uav_altitude,u,v,wind_angle)
             # Create terraces from the pass
-            image_passes = createTerraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,config.min_pass_length)
+            image_passes = create_terraces(u,v,altitude_profile,wind_angle,pass_length,image_passes,max_alt_diff,config.min_pass_length)
         u += distance_between_photos_width          # Increase U value on each loop
 
     # Print stats

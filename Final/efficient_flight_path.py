@@ -2,7 +2,7 @@
 """
 Main file to be called to create an efficient flight path for a polygon
 and corresponding NFZs for a given terrain
-Last updated 25/5/21
+Last updated 28/5/21
 """
 import math
 import numpy as np
@@ -244,8 +244,8 @@ print(f"Estimated time of flight: {round(time_of_flight/60,2)} mins at constant 
 #else:
 #    print(f"Current battery capacity {battery_capacity}mAh of will suffice")
 
-spirals =  shortest_path.get_spirals()  # Get all spirals required
-dpaths = shortest_path.get_DPaths()     # Get the Dubins paths required for the shortest route
+spirals =  shortest_path.getSpirals()  # Get all spirals required
+dpaths = shortest_path.getDPaths()     # Get the Dubins paths required for the shortest route
 
 step_size = 1  # Specify step size for sampling each of the created dubins paths
 
